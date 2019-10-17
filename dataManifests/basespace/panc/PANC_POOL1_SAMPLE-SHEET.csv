@@ -1,0 +1,31 @@
+[Header],,,,,,,,,,
+IEMFileVersion,5,,,,,,,,,
+Date,7/12/2019,,,,,,,,,
+Workflow,GenerateFASTQ,,,,,,,,,
+Application,NextSeq FASTQ Only,,,,,,,,,
+Instrument Type,NextSeq/MiniSeq,,,,,,,,,
+Assay,Nextera DNA,,,,,,,,,
+Index Adapters,Nextera Index Kit (24 Indexes 96 Samples),,,,,,,,,
+Chemistry,Amplicon,,,,,,,,,
+,,,,,,,,,,
+[Reads],,,,,,,,,,
+35,,,,,,,,,,
+35,,,,,,,,,,
+,,,,,,,,,,
+[Settings],,,,,,,,,,
+Adapter,CTGTCTCTTATACACATCT,,,,,,,,,
+,,,,,,,,,,
+[Data],,,,,,,,,,
+Sample_ID,Sample_Name,Sample_Plate,Sample_Well,I7_Index_ID,index,I5_Index_ID,index2,Sample_Project,Description,Lane
+KP4-REP1,,,,N701,TAAGGCGA,N501,GCGATCTA,,,4
+KP4-REP2,,,,N702,CGTACTAG,N501,GCGATCTA,,,4
+KP4-REP3,,,,N704,TCCTGAGC,N501,GCGATCTA,,,4
+PATU8SS89-REP1,,,,N703,AGGCAGAA,N502,ATAGAGAG,,,4
+PATU8SS89-REP2,,,,N705,GGACTCCT,N502,ATAGAGAG,,,4
+PATU8SS89-REP3,,,,N706,TAGGCATG,N502,ATAGAGAG,,,4
+PANC1-REP1,,,,N701,TAAGGCGA,N503,TATCCTCT,,,4
+PANC1-REP2,,,,N702,CGTACTAG,N503,TATCCTCT,,,4
+PANC1-REP3,,,,N704,TCCTGAGC,N503,TATCCTCT,,,4
+PANC0403-REP1,,,,N703,AGGCAGAA,N504,AGAGTAGA,,,4
+PANC0403-REP2,,,,N705,GGACTCCT,N504,AGAGTAGA,,,4
+PANC0403-REP3,,,,N706,TAGGCATG,N504,AGAGTAGA,,,4
