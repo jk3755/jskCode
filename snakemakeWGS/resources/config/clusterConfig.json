@@ -1,0 +1,98 @@
+{
+
+    "__default__" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : 20000,
+        "name"      : "JOBNAME.{rule}.{wildcards}",
+        "runtime"   : "2"
+    },
+
+    "STEP2_fastp_filtering" :
+    {
+        "nCPUs"     : "6",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP3_refgenome_align" :
+    {
+        "nCPUs"     : "6",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP5_blacklist_filter_bam_conversion" :
+    {
+        "nCPUs"     : "5"
+    },
+
+    "STEP6_add_rg_and_cs_bam" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP7_clean_bam" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP9_purge_pcr_duplicates" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP10_mapq_filter" :
+    {
+        "nCPUs"     : "1",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP12_build_bai_index" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP13_make_bigwig" :
+    {
+        "nCPUs"     : "10",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "human_SRR1554094_merge_bam" :
+    {
+        "nCPUs"     : "2",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "lncap_SRR5233717_merge_bam" :
+    {
+        "nCPUs"     : "2",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "lncap_SRR5259501_merge_bam" :
+    {
+        "nCPUs"     : "2",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "lncap_SRR5259502_merge_bam" :
+    {
+        "nCPUs"     : "2",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }
+}

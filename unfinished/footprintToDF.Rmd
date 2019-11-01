@@ -1,0 +1,664 @@
+---
+title: "footprintToDF"
+author: "Jordan S. Kesner"
+date: "10/9/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Install libraries
+```{r}
+
+##
+install.packages("BiocManager")
+
+##
+BiocManager::install("BSgenome.Hsapiens.UCSC.hg38")
+BiocManager::install("MotifDb")
+BiocManager::install("Biostrings")
+BiocManager::install("GenomicRanges")
+BiocManager::install("Rsamtools")
+BiocManager::install("GenomicAlignments")
+BiocManager::install("ChIPseeker")
+BiocManager::install("TxDb.Hsapiens.UCSC.hg38.knownGene")
+BiocManager::install("genomation")
+BiocManager::install("stringr")
+BiocManager::install("org.Hs.eg.db")
+
+```
+
+Load libraries
+```{r}
+
+##
+library(BSgenome.Hsapiens.UCSC.hg38)
+library(Biostrings)
+library(MotifDb)
+library(GenomicRanges)
+library(Rsamtools)
+library(GenomicAlignments)
+library(ChIPseeker)
+library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+library(genomation)
+library(stringr)
+library(org.Hs.eg.db)
+
+##
+genome <- Hsapiens
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+
+```
+
+Compile functions
+```{r}
+
+#### Query motifDB to return binding sites of given gene ####
+getAllBindingSites <- function(gene, pwmScanScore = "80%"){
+  
+  cat("querying motifDB", "\n")
+  mdbHuman <- query(MotifDb, 'hsapiens')
+  cat(length(mdbHuman), "records in database", "\n")
+  geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == gene)
+  cat(geneIdx, "\n")
+  cat("Found", length(geneIdx), "records matching current gene", "\n")
+  cat("retrieving relevant records from mdb", "\n")
+  tempMotifs <- list()
+  c <- 1
+  for (idx in geneIdx){
+    tempMotifs[c] <- mdbHuman@listData[idx]
+    c <- c+1}
+  cat("finding unique motifs", "\n")
+  uniqueMotifs <- unique(tempMotifs)
+  numUniqueMotifs <- length(uniqueMotifs)
+  cat("found", numUniqueMotifs, "unique motifs", "\n")
+  if (numUniqueMotifs > 1){
+    cat("processing more than one unique motif", "\n")
+    PWM <- uniqueMotifs[[1]]
+    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+    allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+    allSites <- trim(allSites)
+    allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+    for (a in 2:numUniqueMotifs){
+      com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
+      eval(parse(text = com))
+      sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      sitesTemp <- keepStandardChromosomes(sitesTemp, pruning.mode = "coarse")
+      sitesTemp <- trim(sitesTemp)
+      sitesTemp@elementMetadata@listData$score2 <- sitesTemp@elementMetadata@listData[["score"]] / max(sitesTemp@elementMetadata@listData[["score"]])
+      allSites <- c(allSites, sitesTemp)}
+  } else {
+    cat("processing one unique motif", "\n")
+    PWM <- uniqueMotifs[[1]]
+    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+    allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+    allSites <- trim(allSites)
+    allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+  }
+  
+  ## Remove chrM entries, if present
+  cat("Removing mitochondrial binding sites, if present", "\n")
+  indexChrM <- which(seqnames(allSites) == "chrM")
+  if (length(indexChrM > 0)){
+    allSites <- allSites[-indexChrM]
+  }
+  
+  cat("returning allSites", "\n")
+  return(allSites)
+}
+
+#### Import a BED file as a GRanges object ####
+importBED <- function(bedPath){
+  bedin <- readBed(bedPath, track.line = FALSE, remove.unusual = FALSE, zero.based = TRUE)
+  bedin <- keepStandardChromosomes(bedin, pruning.mode = "coarse")
+  bedin <- trim(bedin)
+  return(bedin)
+}
+
+#### Generate insertion matrix ####
+generateInsertionMatrix <- function(bamFile, bindingSites, maxWidth, upstream = 100, downstream = 100){
+  
+  ## Expand the input binding sites to the analysis window
+  extSites <- promoters(bindingSites, upstream = upstream, downstream = (downstream + maxWidth), use.names = TRUE)
+  extSites <- keepStandardChromosomes(extSites, pruning.mode = "coarse")
+  extSites <- trim(extSites)
+  
+  ## Set the parameter telling where to look in bam file
+  param <- ScanBamParam(which = extSites)
+  
+  ## Load the relevant reads from the bam file
+  bamIn <- readGAlignments(bamFile, param = param)
+  
+  ## Convert the GRanges and shift read ends to account for Tn5 insertion
+  grIn <- granges(bamIn)
+  grIn2 <- resize(grIn, width = 1)
+  grPlus <- grIn2[which(strand(grIn2) == "+")]
+  grMinus <- grIn2[which(strand(grIn2) == "-")]
+  grPlusShifted <- shift(grPlus, shift = 4L)
+  grMinusShifted <- shift(grMinus, shift = -5L)
+  shiftedInsertions <- c(grPlusShifted, grMinusShifted)
+  shiftedInsertions <- keepStandardChromosomes(shiftedInsertions, pruning.mode = "coarse")
+  shiftedInsertions <- trim(shiftedInsertions)
+  
+  ## Convert to run-length encoding
+  insRLE <- coverage(shiftedInsertions)
+  insViews <- Views(insRLE, extSites)
+  
+  ## Convert RLE views object to insertion matrix
+  insMatrix <- as.matrix(insViews)
+  
+  ## Return the matrix
+  return(insMatrix)
+}
+
+#### Analyze footprinting statistics given an insertion matrix ####
+calculateBasicFootprintStatistics <- function(insMatrix, bindingSites, upstream = 100, downstream = 100, annotationWidth = 1000){
+  
+  numSites <- length(insMatrix[,1])
+  rawSiteBasicStats <- matrix(data = NA, nrow = numSites, ncol = 19)
+  
+  colnames(rawSiteBasicStats) <- c("Chromosome", "motifStart", "motifWidth",
+                                   "motifScore", "motifScore2",
+                                   "totalSignal", "totalSignalPerBP", "motifSignalPerBP",
+                                   "flankSignalPerBP", "backgroundSignalPerBP", "wideFlankSignalPerBP",
+                                   "flankOverBackground", "motifOverFlank", "motifOverWideFlank",
+                                   "Binding", "pValue", "zScore", "Annotation", "closestGene")
+  
+  rawSiteBasicStats[,1] <- as.character(bindingSites@seqnames)
+  rawSiteBasicStats[,2] <- as.numeric(bindingSites@ranges@start)
+  rawSiteBasicStats[,3] <- as.numeric(bindingSites@ranges@width)
+  rawSiteBasicStats[,4] <- as.numeric(bindingSites@elementMetadata@listData[["score"]])
+  rawSiteBasicStats[,5] <- as.numeric(bindingSites@elementMetadata@listData[["score2"]])
+  
+  ## Annotate
+  annotations <- annotatePeak(
+    peak = bindingSites,
+    tssRegion = c(-annotationWidth, annotationWidth),
+    TxDb = TxDb.Hsapiens.UCSC.hg38.knownGene,
+    level = "gene",
+    assignGenomicAnnotation = TRUE,
+    genomicAnnotationPriority = c("Promoter", "5UTR", "3UTR", "Exon", "Intron", "Downstream", "Intergenic"),
+    annoDb = "org.Hs.eg.db",
+    addFlankGeneInfo = FALSE,
+    flankDistance = 5000,
+    sameStrand = FALSE,
+    ignoreOverlap = FALSE,
+    ignoreUpstream = FALSE,
+    ignoreDownstream = FALSE,
+    overlap = "TSS",
+    verbose = TRUE)
+  
+  rawSiteBasicStats[,18] <- annotations@anno@elementMetadata@listData[["annotation"]]
+  rawSiteBasicStats[,19] <- annotations@anno@elementMetadata@listData[["SYMBOL"]]
+  
+  ####
+  for (b in 1:numSites){
+    
+    ##
+    cat("Processing site", b, "of", numSites, "\n")
+    
+    tempWidth <- as.numeric(rawSiteBasicStats[b,3])
+    tempTotalWidth <- as.numeric(tempWidth + upstream + downstream)
+    tempTotalSignal <- as.numeric(sum(insMatrix[b,1:tempTotalWidth]))
+    tempTotalSignalPerBP <- as.numeric(tempTotalSignal/tempTotalWidth)
+    tempMotifSignalPerBP <- as.numeric(sum(insMatrix[b,(upstream:(upstream + tempWidth))] / tempWidth))
+    tempFlankSignalPerBP <- as.numeric((sum(insMatrix[b,(upstream-50):upstream])+sum(insMatrix[b,(upstream+tempWidth):((upstream+50)+tempWidth)])) / 100)
+    tempBackgroundSignalPerBP <- as.numeric((sum(insMatrix[b,1:50])+sum(insMatrix[b,((upstream+downstream)+tempWidth-50):((upstream+downstream)+tempWidth)])) / 100)
+    tempWideFlankSignalPerBP <- as.numeric((sum(insMatrix[b,1:upstream])+sum(insMatrix[b,(upstream+tempWidth):((upstream+downstream)+tempWidth)])) / (upstream+downstream))
+    ##
+    rawSiteBasicStats[b,6] <- as.numeric(tempTotalSignal)
+    rawSiteBasicStats[b,7] <- as.numeric(tempTotalSignalPerBP)
+    rawSiteBasicStats[b,8] <- as.numeric(tempMotifSignalPerBP)
+    rawSiteBasicStats[b,9] <- as.numeric(tempFlankSignalPerBP)
+    rawSiteBasicStats[b,10] <- as.numeric(tempBackgroundSignalPerBP)
+    rawSiteBasicStats[b,11] <- as.numeric(tempWideFlankSignalPerBP)
+    rawSiteBasicStats[b,12] <- as.numeric(tempFlankSignalPerBP / tempBackgroundSignalPerBP)
+    rawSiteBasicStats[b,13] <- as.numeric(tempMotifSignalPerBP / tempFlankSignalPerBP)
+    rawSiteBasicStats[b,14] <- as.numeric(tempMotifSignalPerBP / tempWideFlankSignalPerBP)
+    
+    if (tempTotalSignal == 0){
+      
+    } else {
+      averageNullMotifSignal <- generateNullFP(1000, tempTotalSignal, tempTotalWidth, tempWidth)
+      motifSignals <- c(insMatrix[b,(upstream:(upstream + tempWidth))])
+      
+      result = tryCatch({
+        ttest <- t.test(motifSignals, mu = averageNullMotifSignal, alternative = "less", conf.level = 0.95)
+        pvalue <- ttest$p.value
+        rawSiteBasicStats[b,16] <- pvalue
+        rawSiteBasicStats[b,17] <- qnorm(pvalue)
+        if (pvalue < 0.05){rawSiteBasicStats[b,15] <- 1} else {rawSiteBasicStats[b,15] <- 0}
+      }, warning = function(w) {
+      }, error = function(e) {
+      }, finally = {
+      })}
+  }
+  
+  #### Convert to a dataframe before return ####
+  ## This allows you to store different data types
+  cat("Transferring data to dataframe", "\n")
+  rawFootprintStats <- data.frame(
+    chr = as.character(rawSiteBasicStats[,1]),
+    start = as.numeric(rawSiteBasicStats[,2]),
+    width = as.numeric(rawSiteBasicStats[,3]),
+    score = as.numeric(rawSiteBasicStats[,4]),
+    score2 = as.numeric(rawSiteBasicStats[,5]),
+    totalSignal = as.numeric(rawSiteBasicStats[,6]),
+    totalSignalPerBP = as.numeric(rawSiteBasicStats[,7]),
+    motifSignalPerBP = as.numeric(rawSiteBasicStats[,8]),
+    flankSignalPerBP = as.numeric(rawSiteBasicStats[,9]),
+    backgroundSignalPerBP = as.numeric(rawSiteBasicStats[,10]),
+    wideFlankSignalPerBP = as.numeric(rawSiteBasicStats[,11]),
+    flankAccessibility = as.numeric(rawSiteBasicStats[,12]),
+    footprintDepth = as.numeric(rawSiteBasicStats[,13]),
+    wideAccessibility = as.numeric(rawSiteBasicStats[,14]),
+    binding = as.numeric(rawSiteBasicStats[,15]),
+    pvalue = as.numeric(rawSiteBasicStats[,16]),
+    zscore = as.numeric(rawSiteBasicStats[,17]),
+    annotation = as.character(rawSiteBasicStats[,18]),
+    symbol = as.character(rawSiteBasicStats[,19])
+  )
+  cat("Returning dataframe", "\n")
+  return(rawFootprintStats)
+}
+
+#### Generate a null model of a TF binding footprint for hypothesis testing ####
+generateNullFP <- function(iterations, inputSignal, analysisWidth, motifWidth){
+  averages <- c()
+  for (a in 1:iterations){
+    null <- c(1:(analysisWidth))
+    null <- c(as.vector(rmultinom(1, size=inputSignal, prob=rep(1, length(null)))))
+    motifStart <- ((analysisWidth - motifWidth)/2)
+    motifEnd <- (motifStart + motifWidth)
+    motifAvg <- (sum(null[motifStart:motifEnd])) / motifWidth
+    averages[a] <- motifAvg
+  }
+  return(mean(averages))
+}
+
+plotInsertionSiteProbability <- function(insertionMatrix, motifStart, motifWidth, plotTitle, svgOutPath){
+  
+  ## Get matrix data
+  matrixTotalSignal <- sum(insertionMatrix)
+  columnTotalSignal <- colSums(insertionMatrix)
+  rowTotalSignal <- rowSums(insertionMatrix)
+  insertionProbability <- (columnTotalSignal / matrixTotalSignal) * 100
+  maxInsertionProbability <- max(insertionProbability)
+  totalBP <- length(columnTotalSignal)
+  flankBP <- ((totalBP - motifWidth) / 2 )
+  
+  ## Set the plot labels
+  xLabel = "Distance to motif (bp)"
+  yLabel = "Tn5 fragmentation probability"
+  
+  ## Set the plot axis limits
+  xLimit <- c(0, totalBP + 1)
+  yLimit <- c(0, maxInsertionProbability * 1.5)
+  
+  #### Set up the plot viewports ####
+  grid.newpage()
+  
+  ## Set the outer bounds of the figure
+  vpRegion <- plotViewport(margins=c(5.1, 5.1, 4.1, 2.1), name="plotRegion")
+  pushViewport(vpRegion)
+  
+  ## Setup the graph plotting area
+  vpGraph <- viewport(
+    y = .4, 
+    height = .8,
+    xscale = xLimit,
+    yscale = yLimit,
+    name="graphRegion")
+  
+  pushViewport(vpGraph)
+  
+  ## Add the insertion probability data line
+  # lwd = line width
+  # col = line color
+  grid.lines(
+    x = 1:totalBP,
+    y = insertionProbability,
+    default.units = "native",
+    gp = gpar(lwd = 1, col = "darkred"))
+  
+  ## Add the x-axis and tick marks
+  # at = is a numeric vector with the x-axis locations for tick marks
+  # label = specify labels on tick marks
+  grid.xaxis(at = 
+               c(seq(1, flankBP, length.out = 3),
+                 flankBP + seq(1, motifWidth),
+                 flankBP + motifWidth + seq(1, flankBP, length.out = 3)),
+             label = c(-(flankBP + 1 - seq(1, flankBP + 1, length.out = 3)),
+                       rep("", motifWidth),
+                       seq(0, flankBP, len = 3)))
+  
+  ## Add the y-axis
+  grid.yaxis()
+  
+  ## Adds the dashed lines bounding the motif
+  grid.lines(
+    x = c(flankBP, flankBP, 0),
+    y = c(0, max(insertionProbability), yLimit[2]),
+    default.units = "native",
+    gp = gpar(lty = 2))
+  grid.lines(
+    x = c(flankBP + motifWidth + 1, flankBP + motifWidth + 1, totalBP),
+    y = c(0, maxInsertionProbability, yLimit[2]),
+    default.units = "native",
+    gp = gpar(lty = 2))
+  
+  #### Add the plot title and x and y axis labels
+  upViewport()
+  vpTitle <- viewport(
+    y = .9,
+    height = .2,
+    xscale = c(0, totalBP + 1),
+    name = "title")
+  
+  pushViewport(vpTitle)
+  upViewport()
+  
+  vpLegend <- viewport(
+    x = 0.5,
+    y = 0.5,
+    width = convertX(unit(1, "lines"), unitTo = "npc"),
+    height = convertY(unit(1, "lines"), unitTo = "npc"),
+    just = c("right", "top"), name = "legendWraper")
+  pushViewport(vpLegend)
+  upViewport()
+  
+  grid.text(
+    plotTitle,
+    y = unit(1, "npc")-convertY(unit(1, "lines"), unitTo = "npc"),
+    gp = gpar(cex = 1.2, fontface = "bold"))
+  upViewport()
+  
+  grid.text(xLabel, y = unit(1, 'lines'))
+  grid.text(yLabel, x = unit(1, 'line'), rot = 90)
+  
+  #### Save the image as an svg
+  grid.export(svgOutPath)
+  dev.off()
+}
+
+#### Generate a motif-aligned signal heatmap ####
+plotMotifAlignedHeatmap <- function(insertionMatrix, bindingSites, plotTitle, svgOutPath){
+  
+  #### Margin controls ####
+  # margin(a,b,c,d)
+  # a = size of graph from top to bottom, higher value = smaller. default = 0.1
+  # b = size of graph from left to right, higher value = smaller. default = 0.005
+  # c = flips x axis?
+  # d = margin from right side of page, higher = smaller. set at 0.2 so legends dont overlap
+  # good settings for ATACseq = c(0.1,0.005,0.05,0.2)
+  # bias setting >1 puts more colors at higher values, very useful for dealing with washout of low values
+  # upper.extreme controls to heatmap scale
+  
+  ## Get the matrix data
+  numSites <- length(insertionMatrix[,1])
+  numBP <- length(insertionMatrix[1,])
+  
+  ## Create list structure required to run the featureAlignedHeatmap function
+  plotData <- list()
+  com <- paste0("plotData$", plotTitle, " <- insertionMatrix")
+  eval(parse(text = com))
+  
+  ## Make the plot
+  ChIPpeakAnno::featureAlignedHeatmap(
+    plotData,
+    feature.gr = reCenterPeaks(bindingSites, width = numBP),
+    upper.extreme = 1,
+    annoMcols = "score",
+    sortBy = "score",
+    n.tile = numBP,
+    margin = c(0.1, 0.005, 0.05, 0.2),
+    color = colorRampPalette(c("white", "red"), bias = 0.5)(100),
+    gp = gpar(fontsize = 10),
+    newpage = TRUE)
+  grid.export(svgOutPath)
+  dev.off()
+}
+
+```
+
+AR, LNCAP, 80% PWM match
+```{r}
+
+## Sites
+AR.sites.80 <- getAllBindingSites("AR", pwmScanScore = "80%")
+
+## Peaks
+peaksPath <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\peaks\\LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"
+LNCaP.peaks <- importBED(peaksPath)
+
+## Subset binding sites by merged peaks
+LNCaP.bindingSites.80 <- subsetByOverlaps(AR.sites.80, LNCaP.peaks)
+numSites <- length(LNCaP.bindingSites.80@ranges)
+maxWidth <- max(LNCaP.bindingSites.80@ranges@width)
+minWidth <- min(LNCaP.bindingSites.80@ranges@width)
+
+## Bam paths
+LNCaP.CR01.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-01.rep1.refhg38.bam"
+LNCaP.CR02.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-02.rep1.refhg38.bam"
+LNCaP.CR04.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-04.rep1.refhg38.bam"
+LNCaP.CR05.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-05.rep1.refhg38.bam"
+LNCaP.CR07.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-07.rep1.refhg38.bam"
+LNCaP.CR08.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-08.rep1.refhg38.bam"
+LNCaP.WT01.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-WT-01.rep1.refhg38.bam"
+LNCaP.WT02.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-WT-02.rep1.refhg38.bam"
+
+## Insertion matrix
+LNCaP.CR01.insMatrix <- generateInsertionMatrix(LNCaP.CR01.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.CR02.insMatrix <- generateInsertionMatrix(LNCaP.CR02.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.CR04.insMatrix <- generateInsertionMatrix(LNCaP.CR04.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.CR05.insMatrix <- generateInsertionMatrix(LNCaP.CR05.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.CR07.insMatrix <- generateInsertionMatrix(LNCaP.CR07.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.CR08.insMatrix <- generateInsertionMatrix(LNCaP.CR08.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.WT01.insMatrix <- generateInsertionMatrix(LNCaP.WT01.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+LNCaP.WT02.insMatrix <- generateInsertionMatrix(LNCaP.WT02.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+
+## Save ins matrix
+save(LNCaP.CR01.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR01.insMatrix.RData")
+save(LNCaP.CR02.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR02.insMatrix.RData")
+save(LNCaP.CR04.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR04.insMatrix.RData")
+save(LNCaP.CR05.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR05.insMatrix.RData")
+save(LNCaP.CR07.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR07.insMatrix.RData")
+save(LNCaP.CR08.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.CR08.insMatrix.RData")
+save(LNCaP.WT01.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.WT01.insMatrix.RData")
+save(LNCaP.WT02.insMatrix, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\insMatrix\\LNCaP.WT02.insMatrix.RData")
+
+## Footprint stats
+LNCaP.CR01.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR01.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR01.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR01.footprintStats.RData")
+rm(LNCaP.CR01.insMatrix, LNCaP.CR01.footprintStats)
+
+##
+LNCaP.CR02.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR02.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR02.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR02.footprintStats.RData")
+rm(LNCaP.CR02.insMatrix, LNCaP.CR02.footprintStats)
+
+##
+LNCaP.CR04.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR04.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR04.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR04.footprintStats.RData")
+rm(LNCaP.CR04.insMatrix, LNCaP.CR04.footprintStats)
+
+##
+LNCaP.CR05.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR05.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR05.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR05.footprintStats.RData")
+rm(LNCaP.CR05.insMatrix, LNCaP.CR05.footprintStats)
+
+##
+LNCaP.CR07.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR07.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR07.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR07.footprintStats.RData")
+rm(LNCaP.CR07.insMatrix, LNCaP.CR07.footprintStats)
+
+##
+LNCaP.CR08.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR08.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.CR08.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.CR08.footprintStats.RData")
+rm(LNCaP.CR08.insMatrix, LNCaP.CR08.footprintStats)
+
+##
+LNCaP.WT01.footprintStats <- calculateBasicFootprintStatistics(LNCaP.WT01.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.WT01.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.WT01.footprintStats.RData")
+rm(LNCaP.WT01.insMatrix, LNCaP.WT01.footprintStats)
+
+##
+LNCaP.WT02.footprintStats <- calculateBasicFootprintStatistics(LNCaP.WT02.insMatrix, LNCaP.bindingSites.80)
+save(LNCaP.WT02.footprintStats, file = "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\fpStats\\LNCaP.WT02.footprintStats.RData")
+rm(LNCaP.WT02.insMatrix, LNCaP.WT02.footprintStats)
+
+
+## Put in a list 
+LNCaP.footprints.AR.80 <- list()
+
+```
+
+AR, WT01 only w/ peaks, 80%
+```{r}
+
+## Sites
+AR.sites.80 <- getAllBindingSites("AR", pwmScanScore = "80%")
+
+## Peaks
+peaksPath <- "C:\\Users\\Jordan\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\peaks\\LNCaP-WT-01.rep1.refhg38_globalnorm_p0001_peaks.narrowPeak"
+LNCaP.peaks <- importBED(peaksPath)
+
+## Subset binding sites by merged peaks
+LNCaP.bindingSites.80 <- subsetByOverlaps(AR.sites.80, LNCaP.peaks)
+numSites <- length(LNCaP.bindingSites.80@ranges)
+maxWidth <- max(LNCaP.bindingSites.80@ranges@width)
+minWidth <- min(LNCaP.bindingSites.80@ranges@width)
+
+## Bam paths
+LNCaP.WT01.bam.path <- "C:\\Users\\Jordan\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-WT-01.rep1.refhg38.bam"
+
+## Insertion matrix
+LNCaP.WT01.insMatrix <- generateInsertionMatrix(LNCaP.WT01.bam.path, LNCaP.bindingSites.80, maxWidth, upstream = 100, downstream = 100)
+
+## Footprint stats
+LNCaP.WT01.footprintStats <- calculateBasicFootprintStatistics(LNCaP.WT01.insMatrix, LNCaP.bindingSites.80)
+
+## Save
+save(LNCaP.WT01.footprintStats, file = "D:\\LNCaP.WT01.footprintStats.samplePeaks.AR.pwm80.RData")
+
+```
+
+Alessandro gene list
+```{r}
+
+genesForAlessandro <- c(
+  "FOXM1", "TMPO", "E2F1", "ASF1B", "MCM4", "TCF19", "CHAF1B", "TOP2A", "NACA", "TRIP13",
+  "ZNF367", "PHF19", "CDCA7", "PTTG1", "PSRC1", "RPS14", "MCM8", "CENPK", "SARNP", "RPL7",
+  "RPL6", "MCM2", "CENPU", "E2F8", "RBBP8", "MYBL2", "ZNF695", "HMGB2", "BTF3", "MCM6",
+  "HIVEP3", "E2F7", "RBL1", "ZNHIT3", "UHRF1", "TIMELESS", "CENPF", "PFDN5", "ATAD2",
+  "E2F2", "YBX1", "SUB1", "MCM3", "RBBP4", "CARHSP1", "MYBL1", "RUNX3", "XRCC6", "CDC5L",
+  "RUVBL1", "IKZF1", "SCML2", "BTG1", "PHB", "PHTF2", "IRF8", "ZC3H12D", "PA2G4", "TRAPPC2",
+  "SP140", "GTF2A2", "IFNG", "PHF5A", "RPL7L1", "TDG", "HIVEP2", "GATA1", "ZCCHC17", "ZBTB32",
+  "TBX21", "ZNF70", "GFI1B", "SUMO1", "ZNF831", "GATA3", "PARP15", "PADI4", "PHB2", "CEBPE",
+  "ILF2", "GDF2", "IL16", "HMGB1", "STAT4", "TTF2", "HNF4A", "MNDA", "NRBF2", "DPF1", "HCLS1",
+  "VAV1", "MORF4L1", "ZNF683", "MRPL12", "NFE2", "HMGN1", "CBX3", "HSBP1", "SCML4", "MIXL1",
+  "TIGD3", "C1QBP", "TFEC", "POLR2K", "IKZF3", "C1D", "TFAM", "BCORL1", "ZMAT1", "ZNFX1",
+  "ZNF706", "IL10", "BATF", "MED21", "TSFM", "PFDN1", "NFYB", "HNRNPAB", "ZFYVE28", "DCC",
+  "SLC11A1", "SPI1", "POU2F2", "BCL11B", "HELLS", "ZCCHC10", "IRF1", "IRF4", "PSIP1",
+  "SSRP1", "TADA1", "RRN3", "CD86", "POU2AF1", "CDCA7L", "WNT1", "CREB3L3", "ZNF394", "CDK9",
+  "HMGN2", "SAP18", "ZFAND6", "PCGF6", "FOXP3", "PRDX3", "MCM7", "COPRS", "CDKN2A", "NOC2L",
+  "MCTS1", "HELZ2", "KLF1", "ZFAND1", "CBX2", "ZPR1", "POU4F3", "CNBP", "RCOR1", "PSMD9",
+  "SNF8", "FLI1", "SNAI3", "TSC22D2", "TCF7L2", "RBPJ", "GTF2H5", "ZNF25", "WDR77", "ZNF286B",
+  "GABPA", "ZNF80", "ADH1A", "PITX1", "SPIB", "NOTCH1", "YEATS4", "POLR3F", "CCNK", "UBE2L3",
+  "KMT2B", "ZCRB1", "ASF1A", "TNNI2", "NAA15", "TBPL1", "DNMT3L", "ATF1", "GATA4", "VENTX",
+  "PCBD1", "DPF3", "EOMES", "ZNF184", "CHURC1", "CNOT2", "TONSL", "SUV39H2", "ENO1", "CIC",
+  "CIITA")
+
+sampleList <- c("WT01", "WT02", "CR01", "CR02", "CR04", "CR05", "CR07", "CR08")
+
+```
+
+For Alessandro
+```{r}
+
+##
+symbols <- genesForAlessandro 
+outputDirectory <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\alessandro"
+pwmScanScore = "99%"
+
+
+#### For manually running a fp analysis on a gene(s)
+runGeneListFP <- function(symbols, pwmScanScore = "99%", outputDirectory){
+  
+  #### Bam paths ####
+  LNCaP.CR01.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-01.rep1.refhg38.bam"
+  LNCaP.CR02.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-02.rep1.refhg38.bam"
+  LNCaP.CR04.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-04.rep1.refhg38.bam"
+  LNCaP.CR05.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-05.rep1.refhg38.bam"
+  LNCaP.CR07.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-07.rep1.refhg38.bam"
+  LNCaP.CR08.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-CR-08.rep1.refhg38.bam"
+  LNCaP.WT01.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-WT-01.rep1.refhg38.bam"
+  LNCaP.WT02.bam.path <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\bam\\LNCaP-WT-02.rep1.refhg38.bam"
+  
+  #### Peaks ####
+  peaksPath <- "C:\\Users\\jsk33\\OneDrive\\Git\\atacPipelineMaster\\snakeResources\\standalone\\peaks\\LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"
+  LNCaP.peaks <- importBED(peaksPath)
+  
+  ####
+  numGenes <- length(symbols)
+  cat("Processing", numGenes, "unqiue genes", "\n")
+  
+  #### Loop the genes
+  for (a in 1:numGenes){
+    
+    tryCatch({
+      
+      ##
+      geneName <- as.character(symbols[a])
+      outputPath <- paste0(outputDirectory, "\\", geneName, ".FPstats.RData")
+      
+      ## Get the binding sites and subset by peaks
+      sites <- getAllBindingSites(geneName, pwmScanScore)
+      sites <- subsetByOverlaps(sites, LNCaP.peaks)
+      numSites <- length(sites@ranges)
+      maxWidth <- max(sites@ranges@width)
+      minWidth <- min(sites@ranges@width)
+      
+      ## Footprint stats
+      LNCaP.CR01.insMatrix <- generateInsertionMatrix(LNCaP.CR01.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR01.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR01.insMatrix, sites)
+      LNCaP.CR02.insMatrix <- generateInsertionMatrix(LNCaP.CR02.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR02.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR02.insMatrix, sites)
+      LNCaP.CR04.insMatrix <- generateInsertionMatrix(LNCaP.CR04.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR04.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR04.insMatrix, sites)
+      LNCaP.CR05.insMatrix <- generateInsertionMatrix(LNCaP.CR05.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR05.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR05.insMatrix, sites)
+      LNCaP.CR07.insMatrix <- generateInsertionMatrix(LNCaP.CR07.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR07.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR07.insMatrix, sites)
+      LNCaP.CR08.insMatrix <- generateInsertionMatrix(LNCaP.CR08.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.CR08.footprintStats <- calculateBasicFootprintStatistics(LNCaP.CR08.insMatrix, sites)
+      LNCaP.WT01.insMatrix <- generateInsertionMatrix(LNCaP.WT01.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.WT01.footprintStats <- calculateBasicFootprintStatistics(LNCaP.WT01.insMatrix, sites)
+      LNCaP.WT02.insMatrix <- generateInsertionMatrix(LNCaP.WT02.bam.path, sites, maxWidth, upstream = 100, downstream = 100)
+      LNCaP.WT02.footprintStats <- calculateBasicFootprintStatistics(LNCaP.WT02.insMatrix, sites)
+      
+      ## Put in a list 
+      LNCaP.FPstats <- list(
+                            WT01 = LNCaP.WT01.footprintStats,
+                            WT02 = LNCaP.WT02.footprintStats,
+                            CR01 = LNCaP.CR01.footprintStats,
+                            CR02 = LNCaP.CR02.footprintStats,
+                            CR04 = LNCaP.CR04.footprintStats,
+                            CR05 = LNCaP.CR05.footprintStats,
+                            CR07 = LNCaP.CR07.footprintStats,
+                            CR08 = LNCaP.CR08.footprintStats)
+      
+      ## save
+      save(LNCaP.FPstats, file = outputPath)
+      
+    }, finally = {
+    }) 
+  }
+}
+
+
+## run
+runGeneListFP(genesForAlessandro, outputDirectory = outputDirectory)
+
+
+```
