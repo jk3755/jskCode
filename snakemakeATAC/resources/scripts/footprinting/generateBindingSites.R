@@ -21,6 +21,11 @@ tryCatch({
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Output filepath for binding sites:", bindingSitesOutPath, "\n")
   
+  ## Absolute filepath
+  workingDir <- getwd()
+  bindingSitesOutPath <- paste0(workingDir, "/", bindingSitesOutPath)
+  cat("Output filepath for binding sites:", bindingSitesOutPath, "\n")
+  
   #### Filecheck ####
   cat("Checking if output file already exists at path:", bindingSitesOutPath, "\n")
   if (file.exists(bindingSitesOutPath)){

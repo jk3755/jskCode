@@ -217,6 +217,44 @@ convertEntrezToSymbol <- function(entrezID){
   ## Return the vector
   return(returnIDs)}
 
+#### Retrieve a TSS window for genes *UNFINISHED*
+getGeneTSSwindow <- function(entrezID = "ALL", upstream = 1000, downstream = 500){
+  
+  ## Report
+  cat("Running getGeneLocus function", "\n")
+  cat("Processing entrez IDs", entrezID, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(Homo.sapiens))
+  suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  
+  ## Get gene info and subset to standard only
+  TSSinfo <- promoters(txdb, upstream = 1000, downstream = 500)
+  TSSinfo <- keepStandardChromosomes(TSSinfo, pruning.mode = "coarse")
+  TSSinfo <- trim(TSSinfo)
+}
+
+#### Retrieve genomic positions of genes *UNFINISHED*
+getPromoterWindow <- function(entrezID = "ALL", upstream= 500, downstream = 100){
+  
+  ## Report
+  cat("Running getGeneLocus function", "\n")
+  cat("Processing entrez IDs", entrezID, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  
+  ## Get gene info and subset to standard only
+  geneInfo <- genes(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  geneInfo <- keepStandardChromosomes(geneInfo, pruning.mode = "coarse")
+  geneInfo <- trim(geneInfo)
+  geneInfo <- promoters(geneInfo, upstream = upstream, downstream = downstream)
+  
+  ## Return
+  return(geneInfo)}
+
 
 ######################################################################################################################################
 #### Plotting Functions ##############################################################################################################
@@ -670,6 +708,47 @@ getAllBindingSites <- function(geneSymbol, pwmScanScore = "90%"){
   cat("Returning binding sites", "\n")
   return(allSites)}
 
+#### Query motifDB to return binding sites of given gene ####
+getAllBindingSitesJASPAR <- function(jasparPath, pwmScanScore = "90%"){
+  
+  ## Report
+  cat("Running getAllBindingSitesJASPAR function", "\n")
+  cat("Input jaspar filepath:", jasparPath, "\n")
+  cat("Input PWM matching score:", pwmScanScore, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(TFBSTools))
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(GenomicRanges))
+  genome <- Hsapiens
+  
+  ## Load JASPAR file
+  matrix <- readJASPARMatrix(jasparPath, matrixClass = "PWM")
+  PWM <- matrix@listData[[1]]@profileMatrix
+  
+  ## Get binding sites and add score2
+  allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+  allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+  
+  ## Remove chrM entries
+  cat("Removing mitochondrial binding sites, if present", "\n")
+  indexChrM <- which(seqnames(allSites) == "chrM")
+  if (length(indexChrM > 0)){
+    allSites <- allSites[-indexChrM]
+  }
+  
+  ## Perform final trim to standard only, reorder
+  cat("Trimming to standard chromosomes only", "\n")
+  allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+  allSites <- trim(allSites)
+  allSites <- sortSeqlevels(allSites)
+  allSites <- sort(allSites)
+  
+  ##
+  cat("Returning binding sites", "\n")
+  return(allSites)}
+
 #### Input ENTREZ id, uses all possible gene symbols to query motifDb and return binding sites
 omniGetAllBindingSites <- function(geneEntrez, pwmScanScore = "90%"){
   
@@ -1107,7 +1186,7 @@ manualGenerateFootprint <- function(geneSymbol, bamPath, peaksPath, pwmScanScore
 }
 
 #### Analyze footprinting statistics given an insertion matrix ####
-generateFootprintStats <- function(insMatrix, bindingSites, sampleName, upstream = 100, downstream = 100, annotationWidth = 1000){
+generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName, upstream = 100, downstream = 100, annotationWidth = 1000){
   
   ## Prevent R from converting strings to factors (as is done in data frames)
   options(stringsAsFactors = FALSE)
@@ -1184,6 +1263,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, upstream
     
     ##
     if (tempTotalSignal[b] != 0){
+      
       averageNullMotifSignals <- generateNullFootprint(totalSignal = tempTotalSignal[b],
                                                       bindingSite = bindingSites[b],
                                                       upstream = upstream,
@@ -1202,17 +1282,8 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, upstream
         if (pvalue <= 0.05){tempBinding[b] <- 1}
         if (pvalue > 0.05){tempBinding[b] <- 0}
       }, warning = function(w) {
-        tempPvalue[b] <- 1
-        tempZscore[b] <- 0
-        tempBinding[b] <- 0
       }, error = function(e) {
-        tempPvalue[b] <- 1
-        tempZscore[b] <- 0
-        tempBinding[b] <- 0
       }, finally = {
-        tempPvalue[b] <- 1
-        tempZscore[b] <- 0
-        tempBinding[b] <- 0
       })
     }
   }
@@ -1246,6 +1317,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, upstream
   
   ##
   sampleNameTemp <- rep(sampleName, times = numSites)
+  geneNameTemp <- rep(geneName, times = numSites)
   
   ## Troubleshooting
   cat("ID:", length(sampleNameTemp), "\n")
@@ -1272,6 +1344,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, upstream
   cat("Transferring data to dataframe", "\n")
   footprintStats <- data.frame(
     sampleID = as.character(sampleNameTemp),
+    geneName = as.character(geneNameTemp),
     chr = as.character(tempChr),
     start = as.numeric(tempStart),
     width = as.numeric(tempWidth),
@@ -1622,3 +1695,52 @@ generateSeqbiasModel <- function(fastaPath, bamPath, bedPath, biasedPlotPath, co
   ## Return and save the model
   cat("Saving seqbias model", "\n")
   seqbias.save(seqBiasModel, seqbiasModelPath)}
+
+
+######################################################################################################################################
+#### Gene Accessibility Functions ####################################################################################################
+######################################################################################################################################
+
+getGenePromoterAccessibility <- function(bamPath, entrezID = "ALL", upstream = 500, downstream = 100){
+  
+  ## Report
+  cat("Running getGenePromoterAccessibility function", "\n")
+  cat("Processing entrez IDs", entrezID, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(Rsamtools))
+
+  ## Get the promoter window for genes, resort the GR
+  promoterWindows <- getPromoterWindow(upstream = upstream, downstream = downstream)
+  promoterWindows <- sortSeqlevels(promoterWindows)
+  promoterWindows <- sort(promoterWindows)
+  numGenes <- length(promoterWindows)
+  totalBP <- upstream + downstream
+  
+  ## Count total reads in library and calculate average signal per bp
+  totalReads <- countBam(bamPath)
+  totalReads <- totalReads[6]
+  totalReads <- as.numeric(totalReads)
+  hg38BP <- 3234830000
+  avgSignalPerBP <- totalReads / hg38BP
+  avgSignalPerWindow <- avgSignalPerBP * totalBP
+  
+  ## Scan the bam files and count reads
+  params <- ScanBamParam(which = promoterWindows)
+  readCounts <- countBam(bamPath, param = params)
+  
+  ## Add values normalized to total reads in library
+  normSignal <- readCounts[,6]
+  normSignal <- log2(normSignal / avgSignalPerWindow)
+  readCounts <- cbind(readCounts, normSignal)
+  
+  ## Add the gene annotations
+  geneIDs <- promoterWindows@ranges@NAMES
+  geneSymbols <- convertEntrezToSymbol(geneIDs)
+  readCounts <- cbind(geneIDs, readCounts)
+  readCounts <- cbind(geneSymbols, readCounts)
+  
+  ## Return
+  return(readCounts)
+  
+}

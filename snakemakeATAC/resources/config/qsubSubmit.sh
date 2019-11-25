@@ -12,13 +12,13 @@ echo "Activating snakemake env"
 source activate snakemake
 # Set up the desired variables for running the job
 echo "Setting up variables"
-TARGETRULE="full_temp"
+TARGETRULE="footprinting_lncap_chr"
 SNAKEFILE="/ifs/scratch/c2b2/ac_lab/jk3755/atac/ATAC.snakefile"
 WORKDIR="/ifs/scratch/c2b2/ac_lab/jk3755/atac"
 CONDADIR="conda"
 CLUSTCONFIG="/ifs/scratch/c2b2/ac_lab/jk3755/atac/resources/config/clustConfig.json"
 CORES="999"
-JOBRESTARTS="4"
+JOBRESTARTS="10"
 LATENCYWAIT="120"
 # Echo variable settings
 echo "Current cluster settings for snakemake run:"
