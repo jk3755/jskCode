@@ -12,7 +12,7 @@ echo "Activating snakemake env"
 source activate snakemake
 # Set up the desired variables for running the job
 echo "Setting up variables"
-TARGETRULE="footprinting_lncap_chr"
+TARGETRULE="footprinting_temp"
 SNAKEFILE="/ifs/scratch/c2b2/ac_lab/jk3755/atac/ATAC.snakefile"
 WORKDIR="/ifs/scratch/c2b2/ac_lab/jk3755/atac"
 CONDADIR="conda"

@@ -703,6 +703,8 @@ getAllBindingSites <- function(geneSymbol, pwmScanScore = "90%"){
   cat("Trimming to standard chromosomes only", "\n")
   allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
   allSites <- trim(allSites)
+  allSites <- sortSeqlevels(allSites)
+  allSites <- sort(allSites)
   
   ##
   cat("Returning binding sites", "\n")

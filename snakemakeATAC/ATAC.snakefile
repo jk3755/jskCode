@@ -603,11 +603,11 @@ rule METRICS_generate_peak_annotations:
 
 
 ########################################################################################################################################
-#### FOOTPRINTING - BY CHR #############################################################################################################
+#### FOOTPRINTING ######################################################################################################################
 ########################################################################################################################################
 
 ## Step 1, determine the binding sites
-rule FOOTPRINTING_generate_binding_sites_sm_chr:
+rule FOOTPRINTING_generate_binding_sites_sm:
     input:
         "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
         "resources/functions/atacFunctions.R"
@@ -616,158 +616,12 @@ rule FOOTPRINTING_generate_binding_sites_sm_chr:
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
-        mem_mb=lambda params, attempt: attempt * 25000,
-        run_time=lambda params, attempt: attempt * 4
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
     script:
         "resources/scripts/footprinting/generateBindingSites.R"
 
 ## Step 2, generate the insertion matrix
-rule FOOTPRINTING_generate_insertion_matrix_sm_chr:
-    input:
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
-        "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/sm/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete.chr"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrix.R"
-
-## Step 3, generate the footprint stats table
-rule FOOTPRINTING_generate_footprint_stats_sm_chr:
-    input:
-        "{path}footprints/sm/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete.chr",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.fp.chr.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateFootprintStatsByChr.R"
-
-##
-rule AGGREGATOR_footprinting_chr:
-    input:
-        expand("{{path}}footprints/sm/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.chr.RData", genename=config["geneNames"])
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.uncorrected.chr"
-    shell:
-        "touch {output}"
-
-
-# rule AGGREGATOR_footprinting_chr:
-#     input:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.binding.sites",
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix.chr",
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats.chr"
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.uncorrected.chr"
-#     shell:
-#         "touch {output}"
-
-# rule FOOTPRINTING_insertion_matrix_aggregator_chr:
-#     input:
-#         expand("{{path}}footprints/sm/insertions/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.complete.chr", genename=config["geneNames"])
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix.chr"
-#     shell:
-#         "touch {output}"
-
-# rule FOOTPRINTING_footprint_stats_aggregator_chr:
-#     input:
-#         expand("{{path}}footprints/sm/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.chr.RData", genename=config["geneNames"])
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats.chr"
-#     shell:
-#         "touch {output}"
-
-########################################################################################################################################
-#### FOOTPRINTING ######################################################################################################################
-########################################################################################################################################
-
-rule AGGREGATOR_footprinting:
-    input:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.binding.sites",
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix",
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats"
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.uncorrected"
-    shell:
-        "touch {output}"
-
-
-########################################################################################################################################
-#### FOOTPRINTING - BINDING SITES ######################################################################################################
-########################################################################################################################################
-
-# #### Rules for sample specific footprints ####
-# rule FOOTPRINTING_generate_binding_sites_ss:
-#     input:
-#         "{path}peaks/gn/{sample}.rep{repnum}.ref{refgenome}_globalnorm_p01_peaks.narrowPeak",
-#         "resources/functions/atacFunctions.R"
-#     output:
-#         "{path}footprints/ss/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData"
-#     conda:
-#         "resources/envs/footprintAnalysis.yaml"
-#     resources:
-#         mem_mb=lambda params, attempt: attempt * 25000,
-#         run_time=lambda params, attempt: attempt * 4
-#     script:
-#         "resources/scripts/footprinting/generateBindingSites.R"
-
-# #### Rules for sample merged footprints ####
-# rule FOOTPRINTING_generate_binding_sites_sm:
-#     input:
-#         "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
-#         "resources/functions/atacFunctions.R"
-#     output:
-#         "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData"
-#     conda:
-#         "resources/envs/footprintAnalysis.yaml"
-#     resources:
-#         mem_mb=lambda params, attempt: attempt * 25000,
-#         run_time=lambda params, attempt: attempt * 4
-#     script:
-#         "resources/scripts/footprinting/generateBindingSites.R"
-
-
-########################################################################################################################################
-#### FOOTPRINTING - INS MATRIX #########################################################################################################
-########################################################################################################################################
-
-rule FOOTPRINTING_insertion_matrix_aggregator:
-    input:
-        expand("{{path}}footprints/ss/insertions/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.complete", genename=config["geneNames"]),
-        expand("{{path}}footprints/sm/insertions/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.complete", genename=config["geneNames"])
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix"
-    shell:
-        "touch {output}"
-
-rule FOOTPRINTING_generate_insertion_matrix_ss:
-    input:
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
-        "{path}footprints/ss/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/ss/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 50000,
-        run_time=lambda params, attempt: attempt * 12
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrix.R"
-
 rule FOOTPRINTING_generate_insertion_matrix_sm:
     input:
         "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
@@ -779,129 +633,126 @@ rule FOOTPRINTING_generate_insertion_matrix_sm:
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
-        mem_mb=lambda params, attempt: attempt * 50000,
+        mem_mb=lambda params, attempt: attempt * 20000,
         run_time=lambda params, attempt: attempt * 12
     script:
         "resources/scripts/footprinting/generateInsertionMatrix.R"
 
-
-########################################################################################################################################
-#### FOOTPRINTING - FOOTPRINT STATS ####################################################################################################
-########################################################################################################################################
-
-rule FOOTPRINTING_footprint_stats_aggregator:
-    input:
-        expand("{{path}}footprints/ss/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.RData", genename=config["geneNames"]),
-        expand("{{path}}footprints/sm/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.RData", genename=config["geneNames"])
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats"
-    shell:
-        "touch {output}"
-
-rule FOOTPRINTING_generate_footprint_stats_ss:
-    input:
-        "{path}footprints/ss/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/ss/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.fp.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateFootprintStats.R"
-
+## Step 3, generate the footprint stats table
 rule FOOTPRINTING_generate_footprint_stats_sm:
     input:
         "{path}footprints/sm/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete",
         "resources/functions/atacFunctions.R"
     output:
-        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.fp.RData"
+        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.stats.complete"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 12
+    script:
+        "resources/scripts/footprinting/generateFootprintStatsByChr.R"
+
+## Step 4, aggregate the by chr stats tables into a single file
+rule FOOTPRINTING_aggregate_footprint_stats_sm:
+    input:
+        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.stats.complete",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
         mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 6
+        run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/generateFootprintStats.R"
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
 
+##
+rule AGGREGATOR_footprinting:
+    input:
+        expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.RData", genename=config["geneNames"])
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.uncorrected"
+    shell:
+        "touch {output}"
 
 ########################################################################################################################################
 #### FOOTPRINTING - JASPAR #############################################################################################################
 ########################################################################################################################################
 
-# rule AGGREGATOR_footprinting_jaspar:
-#     input:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.binding.sites",
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix",
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats"
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.uncorrected"
-#     shell:
-#         "touch {output}"
+## Step 1, determine the binding sites
+rule FOOTPRINTING_generate_binding_sites_sm_JASPAR:
+    input:
+        "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
+        "resources/functions/atacFunctions.R",
+        "resources/jaspar/pwm/{ID}.pwm.RData"        
+    output:
+        "{path}footprints/jas/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.bind.jp.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateBindingSitesJaspar.R"
 
-# rule FOOTPRINTING_generate_binding_jaspar:
-#     input:
-#         "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
-#         "resources/functions/atacFunctions.R"
-#     output:
-#         "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData"
-#     conda:
-#         "resources/envs/footprintAnalysis.yaml"
-#     resources:
-#         mem_mb=lambda params, attempt: attempt * 25000,
-#         run_time=lambda params, attempt: attempt * 4
-#     script:
-#         "resources/scripts/footprinting/generateBindingSites.R"
+## Step 2, generate the insertion matrix
+rule FOOTPRINTING_generate_insertion_matrix_sm_JASPAR:
+    input:
+        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
+        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
+        "{path}footprints/jas/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.bind.jp.RData",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/jas/insertions/{sample}.rep{repnum}.ref{refgenome}.{ID}.complete.jp"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 12
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrixJaspar.R"
 
-# rule FOOTPRINTING_insertion_matrix_aggregator:
-#     input:
-#         expand("{{path}}footprints/ss/insertions/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.complete", genename=config["geneNames"]),
-#         expand("{{path}}footprints/sm/insertions/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.complete", genename=config["geneNames"])
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.ins.matrix"
-#     shell:
-#         "touch {output}"
+## Step 3, generate the footprint stats table
+rule FOOTPRINTING_generate_footprint_stats_sm_JASPAR:
+    input:
+        "{path}footprints/jas/insertions/{sample}.rep{repnum}.ref{refgenome}.{ID}.complete.jp",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/jas/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.stats.complete.jp"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 12
+    script:
+        "resources/scripts/footprinting/generateFootprintStatsByChrJaspar.R"
 
-# rule FOOTPRINTING_generate_insertion_matrix_sm:
-#     input:
-#         "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-#         "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
-#         "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.bind.RData",
-#         "resources/functions/atacFunctions.R"
-#     output:
-#         "{path}footprints/sm/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete"
-#     conda:
-#         "resources/envs/footprintAnalysis.yaml"
-#     resources:
-#         mem_mb=lambda params, attempt: attempt * 50000,
-#         run_time=lambda params, attempt: attempt * 12
-#     script:
-#         "resources/scripts/footprinting/generateInsertionMatrix.R"
+## Step 4, aggregate the by chr stats tables into a single file
+rule FOOTPRINTING_aggregate_footprint_stats_sm_JASPAR:
+    input:
+        "{path}footprints/jas/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.stats.complete.jp",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/jas/aggregated/{sample}.rep{repnum}.ref{refgenome}.{ID}.RData.jp"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStatsJaspar.R"
 
-# rule FOOTPRINTING_footprint_stats_aggregator:
-#     input:
-#         expand("{{path}}footprints/ss/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.RData", genename=config["geneNames"]),
-#         expand("{{path}}footprints/sm/stats/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.fp.RData", genename=config["geneNames"])
-#     output:
-#         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.stats"
-#     shell:
-#         "touch {output}"
+##
+rule AGGREGATOR_footprinting_JASPAR:
+    input:
+        expand("{{path}}footprints/jas/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{jasparID}.RData.jp", jasparID=config["jasparNames"])
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.jp"
+    shell:
+        "touch {output}"
 
-# rule FOOTPRINTING_generate_footprint_stats_sm:
-#     input:
-#         "{path}footprints/sm/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.complete",
-#         "resources/functions/atacFunctions.R"
-#     output:
-#         "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.fp.RData"
-#     conda:
-#         "resources/envs/footprintAnalysis.yaml"
-#     resources:
-#         mem_mb=lambda params, attempt: attempt * 10000,
-#         run_time=lambda params, attempt: attempt * 6
-#     script:
-#         "resources/scripts/footprinting/generateFootprintStats.R"
 
 ########################################################################################################################################
 #### SEQBIAS MODELS ####################################################################################################################
@@ -961,43 +812,22 @@ rule MERGE_sample_peaks_lncap:
 
 rule MERGE_sample_peaks_cosma:
     input:
-        "data/cosma/ex01/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/ex01/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/ex01/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/ex01/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/ex01/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/ex01/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
+        "data/cosma/UNd/peaks/sm/Undetermined.rep1.refhg38_sample_merged_peaks.narrowPeak"
         "resources/functions/atacFunctions.R"
     output:
-        "data/cosma/ex01/DAbaz2b/peaks/sm/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma/ex01/DAluf/peaks/sm/DonorA_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma/ex01/DAprog/peaks/sm/DonorA_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma/ex01/DBbaz2b/peaks/sm/DonorB_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma/ex01/DBluf/peaks/sm/DonorB_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma/ex01/DBprog/peaks/sm/DonorB_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak"
-    conda:
-        "resources/envs/mergeSamplePeaks.yaml"
-    script:
-        "resources/scripts/preprocessing/mergeSamplePeaks.R"
-
-rule MERGE_sample_peaks_cosma2:
-    input:
-        "data/cosma2/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma2/UNd/peaks/gn/Undetermined.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R"
-    output:
-        "data/cosma2/DAbaz2b/peaks/sm/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/DAluf/peaks/sm/DonorA_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/DAprog/peaks/sm/DonorA_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/DBbaz2b/peaks/sm/DonorB_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/DBluf/peaks/sm/DonorB_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/DBprog/peaks/sm/DonorB_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "data/cosma2/UNd/peaks/sm/Undetermined.rep1.refhg38_sample_merged_peaks.narrowPeak"
+        "data/cosma/DAbaz2b/peaks/sm/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DAluf/peaks/sm/DonorA_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DAprog/peaks/sm/DonorA_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBbaz2b/peaks/sm/DonorB_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBluf/peaks/sm/DonorB_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBprog/peaks/sm/DonorB_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/UNd/peaks/sm/Undetermined.rep1.refhg38_sample_merged_peaks.narrowPeak",
     conda:
         "resources/envs/mergeSamplePeaks.yaml"
     script:

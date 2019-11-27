@@ -44,6 +44,7 @@ tryCatch({
     suppressMessages(library(ChIPseeker))
     suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
     suppressMessages(library(genomation))
+    suppressMessages(library(TFBSTools))
     genome <- Hsapiens
     txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
     

@@ -1,4 +1,10 @@
 
+#### IMPORTANT ####
+## MUST DISABLE SCIENTIFIC NOTATION
+## OR PEAKS STARTING AT COORDS ENDING IN 000 etc
+## WILL BE CONVERTED TO EXPONENETS AND WILL CAUSE ERRORS
+options(scipen = 999)
+
 #### Determine the number of input files ####
 lastInput <- length(snakemake@input)
 numInputs <- (lastInput - 1)

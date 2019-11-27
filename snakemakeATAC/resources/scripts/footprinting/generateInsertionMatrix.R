@@ -108,9 +108,4 @@ tryCatch({
   }
 
 }, finally = {
-  
-  #### Touch the snakemake file ####
-  cat("Finished, touching snakemake file", "\n")
-  file.create(snakeTouchPath, showWarnings = FALSE)
-  
 })
