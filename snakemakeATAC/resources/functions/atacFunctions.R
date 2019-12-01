@@ -255,6 +255,47 @@ getPromoterWindow <- function(entrezID = "ALL", upstream= 500, downstream = 100)
   ## Return
   return(geneInfo)}
 
+#### Split GRanges into even bins ####
+splitGRangesToBin <- function(inputGR, numBins, returnBin){
+  
+  ## Report
+  cat("Running splitGRangesToBin function", "\n")
+  cat("Target number of bins", numBins, "\n")
+  cat("Bin to be returned", returnBin, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(GenomicRanges))
+  
+  ##
+  numSites <- length(inputGR)
+  cat("Found", numSites, "total sites in the input GR", "\n")
+  
+  ##
+  grVec <- 1:numSites
+  binInfo <- chunk(grVec, numBins)
+  com <- paste0("binIdx <- binInfo[['", returnBin, "']]")
+  eval(parse(text = com))
+  binIdx <- as.numeric(binIdx)
+
+  ## Add metadata indices
+  score <- bindingSites@elementMetadata@listData$score
+  score2 <- bindingSites@elementMetadata@listData$score2
+  idx <- grVec
+  df <- data.frame(score = score, score2 = score2, idx = idx)
+  mcols(bindingSites, use.names = FALSE) <- df
+  
+  ## Subset the GR
+  subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
+
+  ## Return the subset GR
+  return(subGR)
+  
+}
+
+####
+chunk <- function(x,n) split(x, cut(seq_along(x), n, labels = FALSE))
 
 ######################################################################################################################################
 #### Plotting Functions ##############################################################################################################
@@ -630,7 +671,7 @@ generatePeakAnnotationPlots <- function(peakPath, outputPath1, outputPath2, outp
 ######################################################################################################################################
 
 #### Query motifDB to return binding sites of given gene ####
-getAllBindingSites <- function(geneSymbol, pwmScanScore = "90%"){
+getAllBindingSites <- function(geneSymbol, pwmScanScore = "95%"){
   
   ## Report
   cat("Running getAllBindingSites function", "\n")
@@ -711,7 +752,7 @@ getAllBindingSites <- function(geneSymbol, pwmScanScore = "90%"){
   return(allSites)}
 
 #### Query motifDB to return binding sites of given gene ####
-getAllBindingSitesJASPAR <- function(jasparPath, pwmScanScore = "90%"){
+getAllBindingSitesJASPAR <- function(jasparPath, pwmScanScore = "95%"){
   
   ## Report
   cat("Running getAllBindingSitesJASPAR function", "\n")
@@ -752,7 +793,7 @@ getAllBindingSitesJASPAR <- function(jasparPath, pwmScanScore = "90%"){
   return(allSites)}
 
 #### Input ENTREZ id, uses all possible gene symbols to query motifDb and return binding sites
-omniGetAllBindingSites <- function(geneEntrez, pwmScanScore = "90%"){
+omniGetAllBindingSites <- function(geneEntrez, pwmScanScore = "95%"){
   
   ## Report
   cat("Running omniGetAllBindingSites function", "\n")
@@ -1129,7 +1170,7 @@ generateNullFootprintSeqbiasCorrected <- function(totalSignal, bindingSite, seqb
 ######################################################################################################################################
 
 #### Manually generate a single FP data object (useful if the size is not too large and can be done without splitting ins matrix)
-manualGenerateFootprint <- function(geneSymbol, bamPath, peaksPath, pwmScanScore = "90%", upstream = 100, downstream = 100, outputPath){
+manualGenerateFootprint <- function(geneSymbol, bamPath, peaksPath, pwmScanScore = "95%", upstream = 100, downstream = 100, outputPath){
   
   ## Report
   cat("Running manualGenerateFootprint function", "\n")

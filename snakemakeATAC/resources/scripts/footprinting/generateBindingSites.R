@@ -10,6 +10,8 @@ tryCatch({
   sampleRep <- snakemake@wildcards[["repnum"]]
   geneName <- snakemake@wildcards[["gene"]]
   refGenome <- snakemake@wildcards[["refgenome"]]
+  pwmScanScore <- snakemake@wildcards[["matchScore"]]
+  cat("PWM matching score:", pwmScanScore, "\n")
   
   #### Report ####
   cat("Generating binding sites:", "\n")
@@ -54,7 +56,7 @@ tryCatch({
     
     #### Retrieve the binding sites for the current gene ####
     cat("Retrieving binding sites", "\n")
-    tempAllSites <- getAllBindingSites(geneName)
+    tempAllSites <- getAllBindingSites(geneName, pwmScanScore = pwmScanScore)
     
     #### Subset the binding sites with the peaks
     cat("Subsetting sites to peak regions", "\n")

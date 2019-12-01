@@ -1803,3 +1803,11 @@ jasparNames:
   - KARTHIK35
   - KARTHIK36
   - KARTHIK37
+
+# JASPAR motifs karthik cosma names TEST
+jasparNamesREMOVE:
+  - KARTHIK38
+
+# TEST NAMES FOR TROUBLESHOOTING PIPELINE
+geneNamesRemove:
+  - FOXM1
