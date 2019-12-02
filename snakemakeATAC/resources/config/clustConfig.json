@@ -128,5 +128,60 @@
     {
         "memory"    : "{resources.mem_mb}",
         "runtime"   : "{resources.run_time}"
-    }   
+    },
+
+    "WGS_make_bigwig" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_binding_sites_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_insertion_matrix_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_footprint_stats_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_aggregate_footprint_stats_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_binding_sites_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_insertion_matrix_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_footprint_stats_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_aggregate_footprint_stats_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }
 }

@@ -1,9 +1,9 @@
 #!/bin/bash
-#$ -N ATAC
+#$ -N LNCAP90
 #$ -j y
 #$ -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac
 #$ -pe smp 10
-#$ -l mem=10G,time=24::
+#$ -l mem=10G,time=48::
 #
 # Load the conda environment for running snakemake on the master job
 echo "Loading conda"
@@ -12,7 +12,7 @@ echo "Activating snakemake env"
 source activate snakemake
 # Set up the desired variables for running the job
 echo "Setting up variables"
-TARGETRULE="footprinting_cosma_pwm90"
+TARGETRULE="footprinting_lncap_pwm95"
 SNAKEFILE="/ifs/scratch/c2b2/ac_lab/jk3755/atac/ATAC.snakefile"
 WORKDIR="/ifs/scratch/c2b2/ac_lab/jk3755/atac"
 CONDADIR="conda"
@@ -39,7 +39,7 @@ snakemake \
 --cores $CORES \
 UNLOCK \
 --cluster-config $CLUSTCONFIG \
---cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/log.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+--cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/lncap95.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
 --use-conda \
 --conda-prefix $CONDADIR \
 --restart-times $JOBRESTARTS \
@@ -54,7 +54,7 @@ snakemake \
 --local-cores $LOCALCORES \
 $TARGETRULE \
 --cluster-config $CLUSTCONFIG \
---cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/log.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+--cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/lncap95.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
 --use-conda \
 --conda-prefix $CONDADIR \
 --restart-times $JOBRESTARTS \

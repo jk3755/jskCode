@@ -1259,14 +1259,28 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   tempChr <- as.character(bindingSites@seqnames)
   tempStart <- as.numeric(bindingSites@ranges@start)
   tempWidth <- as.numeric(bindingSites@ranges@width)
+  ##
   tempScore <- as.numeric(bindingSites@elementMetadata@listData[["score"]])
   tempScore2 <- as.numeric(bindingSites@elementMetadata@listData[["score2"]])
+  ##
   tempTotalWidth <- c()
   tempTotalSignal <- c()
-  tempAverageSignal <- c()
+  tempTotalAverageSignal <- c() #
+  ##
+  tempTotalMotifSignal <- c() #
   tempAverageMotifSignal <- c()
+  ##
+  tempTotalFlankSignal <- c() #
   tempAverageFlankSignal <- c()
+  ##
+  tempTotalBackgroundSignal <- c() #
   tempAverageBackgroundSignal <- c()
+  ##
+  tempFlankAccessibility <- c() #
+  tempFootprintDepth <- c() #
+  tempLog2FlankAccessibility <- c() #
+  tempLog2FootprintDepth <- c() #
+  ##
   tempPvalue <- c()
   tempZscore <- c()
   tempBinding <- c()
@@ -1282,10 +1296,13 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   for (b in 1:numSites){
     
     ##
+    cat("Processing site", b, "of", numSites, "\n")
+    
+    ##
     motifWidth <- tempWidth[b]
     motifStart <- upstream
-    motifEnd <- as.numeric(upstream + motifWidth)
-    flank2Start <- as.numeric(upstream + motifWidth)
+    motifEnd <- as.numeric(motifStart + motifWidth)
+    flank2Start <- as.numeric(motifEnd)
     flank2End <- as.numeric(flank2Start + 50)
     background2Start <- as.numeric(flank2End)
     background2End <- as.numeric(background2Start + 50)
@@ -1293,10 +1310,16 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
     ##
     tempTotalWidth[b] <- as.numeric(motifWidth + extSize)
     tempTotalSignal[b] <- as.numeric(sum(insMatrix[b, 1:tempTotalWidth[b]]))
-    tempAverageSignal[b] <- as.numeric(tempTotalSignal[b] / tempTotalWidth[b])
-    tempAverageMotifSignal[b] <- as.numeric(sum(insMatrix[b, (upstream:(motifEnd))] / motifWidth))
-    tempAverageFlankSignal[b] <- as.numeric((sum(insMatrix[b, flank1Start:flank1End]) + sum(insMatrix[b, flank2Start:flank2End])) / 100)
-    tempAverageBackgroundSignal[b] <- as.numeric((sum(insMatrix[b, background1Start:background1End]) + sum(insMatrix[b, background2Start:background2End])) / 100)
+    tempTotalAverageSignal[b] <- as.numeric(tempTotalSignal[b] / tempTotalWidth[b])
+    ##
+    tempTotalMotifSignal[b] <- as.numeric(sum(insMatrix[b, motifStart:motifEnd])) #
+    tempAverageMotifSignal[b] <- as.numeric(tempTotalMotifSignal[b] / motifWidth)
+    ##
+    tempTotalFlankSignal[b] <- as.numeric((sum(insMatrix[b, flank1Start:flank1End]) + sum(insMatrix[b, flank2Start:flank2End])))
+    tempAverageFlankSignal[b] <- as.numeric(tempTotalFlankSignal[b] / 100)
+    ##
+    tempTotalBackgroundSignal[b] <- as.numeric((sum(insMatrix[b, background1Start:background1End]) + sum(insMatrix[b, background2Start:background2End])))
+    tempAverageBackgroundSignal[b] <- as.numeric(tempTotalBackgroundSignal[b] / 100)
     
     ##
     if (tempTotalSignal[b] == 0){
@@ -1307,6 +1330,9 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
     ##
     if (tempTotalSignal[b] != 0){
       
+      #currentSite <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% b)]
+      #currentSite <- bindingSites[b]
+      #currentSite <- bind[(elementMetadata(bind)[, "idx"] %in% 1)]
       averageNullMotifSignals <- generateNullFootprint(totalSignal = tempTotalSignal[b],
                                                       bindingSite = bindingSites[b],
                                                       upstream = upstream,
@@ -1333,7 +1359,9 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   
   ## Calculate the footprint scores
   tempFlankAccessibility <- as.numeric(tempAverageFlankSignal / tempAverageBackgroundSignal)
-  tempFootprintDepth <- as.numeric(tempAverageFlankSignal / tempAverageMotifSignal)
+  tempLog2FlankAccessibility <- as.numeric(log2(tempFlankAccessibility))
+  tempFootprintDepth <- as.numeric(tempAverageMotifSignal / tempAverageFlankSignal)
+  tempLog2FootprintDepth <- as.numeric(log2(tempFootprintDepth))
   
   ## Annotate the binding sites
   cat("Annotating binding sites", "\n")
@@ -1363,24 +1391,24 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   geneNameTemp <- rep(geneName, times = numSites)
   
   ## Troubleshooting
-  cat("ID:", length(sampleNameTemp), "\n")
-  cat("chr:", length(tempChr), "\n")
-  cat("start:", length(tempStart), "\n")
-  cat("width:", length(tempWidth), "\n")
-  cat("score:", length(tempScore), "\n")
-  cat("score2:", length(tempScore2), "\n")
-  cat("totalSignal:", length(tempTotalSignal), "\n")
-  cat("averageSignal:", length(tempAverageSignal), "\n")
-  cat("averageMotifSignal:", length(tempAverageMotifSignal), "\n")
-  cat("averageFlankSignal:", length(tempAverageFlankSignal), "\n")
-  cat("averageBackgroundSignal:", length(tempAverageBackgroundSignal), "\n")
-  cat("flankAccessibility:", length(tempFlankAccessibility), "\n")
-  cat("footprintDepth:", length(tempFootprintDepth), "\n")
-  cat("binding:", length(tempBinding), "\n")
-  cat("pvalue:", length(tempPvalue), "\n")
-  cat("zscore:", length(tempZscore), "\n")
-  cat("annotation:", length(tempAnnotation), "\n")
-  cat("symbol:", length(tempSymbol), "\n")
+  # cat("ID:", length(sampleNameTemp), "\n")
+  # cat("chr:", length(tempChr), "\n")
+  # cat("start:", length(tempStart), "\n")
+  # cat("width:", length(tempWidth), "\n")
+  # cat("score:", length(tempScore), "\n")
+  # cat("score2:", length(tempScore2), "\n")
+  # cat("totalSignal:", length(tempTotalSignal), "\n")
+  # cat("averageSignal:", length(tempAverageSignal), "\n")
+  # cat("averageMotifSignal:", length(tempAverageMotifSignal), "\n")
+  # cat("averageFlankSignal:", length(tempAverageFlankSignal), "\n")
+  # cat("averageBackgroundSignal:", length(tempAverageBackgroundSignal), "\n")
+  # cat("flankAccessibility:", length(tempFlankAccessibility), "\n")
+  # cat("footprintDepth:", length(tempFootprintDepth), "\n")
+  # cat("binding:", length(tempBinding), "\n")
+  # cat("pvalue:", length(tempPvalue), "\n")
+  # cat("zscore:", length(tempZscore), "\n")
+  # cat("annotation:", length(tempAnnotation), "\n")
+  # cat("symbol:", length(tempSymbol), "\n")
 
   #### Convert to a dataframe before return ####
   ## This allows you to store different data types
@@ -1394,12 +1422,17 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
     score = as.numeric(tempScore),
     score2 = as.numeric(tempScore2),
     totalSignal = as.numeric(tempTotalSignal),
-    averageSignal = as.numeric(tempAverageSignal),
+    averageTotalSignal = as.numeric(tempTotalAverageSignal),
+    totalMotifSignal = as.numeric(tempTotalMotifSignal),
     averageMotifSignal = as.numeric(tempAverageMotifSignal),
+    totalFlankSignal = as.numeric(tempTotalFlankSignal),
     averageFlankSignal = as.numeric(tempAverageFlankSignal),
+    totalBackgroundSignal = as.numeric(tempTotalBackgroundSignal),
     averageBackgroundSignal = as.numeric(tempAverageBackgroundSignal),
     flankAccessibility = as.numeric(tempFlankAccessibility),
     footprintDepth = as.numeric(tempFootprintDepth),
+    log2FlankAccessibility = as.numeric(tempLog2FlankAccessibility),
+    log2FootprintDepth = as.numeric(tempLog2FootprintDepth),
     binding = as.numeric(tempBinding),
     pvalue = as.numeric(tempPvalue),
     zscore = as.numeric(tempZscore),
@@ -1462,6 +1495,13 @@ generateFootprintStatsSeqbiasCorrected <- function(insMatrix, bindingSites, samp
   background1Start <- as.numeric(1)
   background1End <- as.numeric(50)
   
+  ## Report
+  cat("extsize:", extSize, "\n")
+  cat("flank1Start:", flank1Start, "\n")
+  cat("flank1End:", flank1End, "\n")
+  cat("background1Start:", background1Start, "\n")
+  cat("background1End:", background1End, "\n")
+  
   ## Loop over the binding sites
   cat("Processing binding sites", "\n")
   for (b in 1:numSites){
@@ -1474,7 +1514,7 @@ generateFootprintStatsSeqbiasCorrected <- function(insMatrix, bindingSites, samp
     flank2Start <- as.numeric(upstream + motifWidth)
     flank2End <- as.numeric(flank2Start + 50)
     background2Start <- as.numeric(flank2End)
-    background2End <- as.numeric(background2Start + 50)
+    background2End <- as.numeric(motifWidth + extSize)
     
     ##
     tempTotalWidth[b] <- as.numeric(motifWidth + extSize)

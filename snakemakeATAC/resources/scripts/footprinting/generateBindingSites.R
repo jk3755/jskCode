@@ -11,7 +11,7 @@ tryCatch({
   geneName <- snakemake@wildcards[["gene"]]
   refGenome <- snakemake@wildcards[["refgenome"]]
   pwmScanScore <- snakemake@wildcards[["matchScore"]]
-  cat("PWM matching score:", pwmScanScore, "\n")
+  
   
   #### Report ####
   cat("Generating binding sites:", "\n")
@@ -20,6 +20,7 @@ tryCatch({
   cat("Sample rep:", sampleRep, "\n")
   cat("Gene name:", geneName, "\n")
   cat("Reference genome used:", refGenome, "\n")
+  cat("PWM matching score:", pwmScanScore, "\n")
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Output filepath for binding sites:", bindingSitesOutPath, "\n")
   

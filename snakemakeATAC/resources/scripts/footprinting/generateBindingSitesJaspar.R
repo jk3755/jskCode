@@ -11,6 +11,7 @@ tryCatch({
   sampleRep <- snakemake@wildcards[["repnum"]]
   geneID <- snakemake@wildcards[["ID"]]
   refGenome <- snakemake@wildcards[["refgenome"]]
+  pwmScanScore <- snakemake@wildcards[["matchScore"]]
   
   #### Report ####
   cat("Generating binding sites:", "\n")
@@ -19,6 +20,7 @@ tryCatch({
   cat("Sample rep:", sampleRep, "\n")
   cat("Gene name:", geneID, "\n")
   cat("Reference genome used:", refGenome, "\n")
+  cat("PWM matching score:", pwmScanScore, "\n")
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Filepath of JASPAR file:", jasparPath, "\n")
   cat("Output filepath for binding sites:", bindingSitesOutPath, "\n")
@@ -55,7 +57,6 @@ tryCatch({
     
     ## Load JASPAR file
     load(file = jasparPath)
-    pwmScanScore = "95%"
     
     ## Get binding sites and add score2
     allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)

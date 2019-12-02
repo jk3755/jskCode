@@ -1,96 +1,63 @@
-########################################################################################################################################
-#### LNCAP #############################################################################################################################
-########################################################################################################################################
-rule footprinting_lncap:
-    input:
-        "data/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.uncorrected",
-        "data/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.uncorrected",
-        "data/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.uncorrected",
-        "data/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.uncorrected",
-        "data/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.uncorrected",
-        "data/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.uncorrected",
-        "data/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.uncorrected",
-        "data/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.uncorrected"
 
-rule footprinting_temp:
+rule footprinting_lncap_pwm95:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.uncorrected",
-        "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.uncorrected",
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.jp",
-        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.jp",
-        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.jp",
-        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.jp",
-        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.jp",
-        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.jp",
-        "data/cosma/UNd/operations/aggregators/Undetermined.rep1.refhg38.footprinting.jp"
+        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
+        "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
 
-rule footprinting_lncap_forked:
+rule run_WGS:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.uncorrected.forked",
-        "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.uncorrected.forked"
+        "data/wgs/bigwig/SRR1554090.bw",
+        "data/wgs/operations/aggregators/SRR1554090.footprinting.pwm90.wgs.lncap.complete",
+        "data/wgs/operations/aggregators/SRR1554090.footprinting.pwm90.wgs.cosma.complete"
 
-rule footprinting_cosma_forked:
+rule footprinting_cosma_pwm90:
     input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.jp.forked",
-        "data/cosma/UNd/operations/aggregators/Undetermined.rep1.refhg38.footprinting.jp.forked"
+        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm90.uncorrected.jp",
+        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.pwm90.uncorrected.jp",
+        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.pwm90.uncorrected.jp",
+        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.pwm90.uncorrected.jp",
+        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.pwm90.uncorrected.jp",
+        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.pwm90.uncorrected.jp"
 
-rule footprinting_lncap_chunked:
+rule bigwig_WGS:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.uncorrected.chunked",
-        "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.uncorrected.chunked"
+        "data/wgs/bigwig/SRR1554090.bw"
 
-rule footprinting_test:
+rule lncap_WGS:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.uncorrected.chunked"
+        "data/wgs/operations/aggregators/SRR1554090.footprinting.pwm90.wgs.lncap.complete"
 
-rule footprinting_cosma_chunked_pwm95:
+rule cosma_WGS:
     input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked",
-        "data/cosma/UNd/operations/aggregators/Undetermined.rep1.refhg38.footprinting.pwm95.jp.uncorrected.chunked"
+        "data/wgs/operations/aggregators/SRR1554090.footprinting.pwm90.wgs.cosma.complete"
 
-rule footprinting_cosma_chunked_test:
+#######################################################################################################################
+rule footprinting_DAbaz2b_pwm97:
     input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.jp.uncorrected.chunked"
+        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
 
-rule footprinting_lncap_chunked_pwm95:
+rule footprinting_DAluf_pwm97:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/wt02/operations/aggregators/LNCaP-WT-02.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr01/operations/aggregators/LNCaP-CR-01.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr02/operations/aggregators/LNCaP-CR-02.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr04/operations/aggregators/LNCaP-CR-04.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr05/operations/aggregators/LNCaP-CR-05.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr07/operations/aggregators/LNCaP-CR-07.rep1.refhg38.footprinting.pwm95.uncorrected.chunked",
-        "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.pwm95.uncorrected.chunked"
+        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
 
-rule footprinting_wt01_pwm90:
+rule footprinting_DAprog_pwm97:
     input:
-        "data/lncap/wt01/operations/aggregators/LNCaP-WT-01.rep1.refhg38.footprinting.pwm90.uncorrected.chunked"
+        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
+
+rule footprinting_DBbaz2b_pwm97:
+    input:
+        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
+
+rule footprinting_DBluf_pwm97:
+    input:
+        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
+
+rule footprinting_DBprog_pwm97:
+    input:
+        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.pwm97.uncorrected.jp"
