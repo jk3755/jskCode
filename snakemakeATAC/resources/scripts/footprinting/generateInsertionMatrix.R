@@ -7,11 +7,12 @@ tryCatch({
   baiPath <- snakemake@input[[2]]
   bindingSitesPath <- snakemake@input[[3]]
   functionSourcePath <- snakemake@input[[4]]
-  snakeTouchPath <- snakemake@output[[1]]
+  dataOutPath <- snakemake@output[[1]]
   sampleName <- snakemake@wildcards[["sample"]]
   sampleRep <- snakemake@wildcards[["repnum"]]
   geneName <- snakemake@wildcards[["gene"]]
   refGenome <- snakemake@wildcards[["refgenome"]]
+  currentChunk <- snakemake@wildcards[["chunk"]]
   
   #### Report ####
   cat("Generating insertion matrix with the following parameters:", "\n")
@@ -21,91 +22,74 @@ tryCatch({
   cat("Sample rep:", sampleRep, "\n")
   cat("Gene name:", geneName, "\n")
   cat("Reference genome used:", refGenome, "\n")
+  cat("Current chunk:", currentChunk, "\n")
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Filepath for loading binding sites:", bindingSitesPath, "\n")
+  cat("Filepath for output data:", dataOutPath, "\n")
   
-  #### Filecheck ####
-  cat("Checking if output file already exists at path:", snakeTouchPath, "\n")
-  if (file.exists(snakeTouchPath)){
-    cat("Output file already exists. Skipping", "\n")
+  #### Load libraries ####
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(MotifDb))
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(Rsamtools))
+  suppressMessages(library(GenomicAlignments))
+  suppressMessages(library(ChIPseeker))
+  suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
+  suppressMessages(library(genomation))
+  suppressMessages(library(stringr))
+  genome <- Hsapiens
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+  
+  #### Source functions ####
+  cat("Loading functions from path:", functionSourcePath, "\n")
+  source(functionSourcePath)
+  
+  #### Retrieve the binding sites for the current gene ####
+  cat("Loading binding sites", "\n")
+  load(bindingSitesPath)
+  numSites <- length(bindingSites)
+  
+  #### No binding sites
+  if (numSites == 0){
+    cat("No binding sites identified, creating dummy file", "\n")
+    insertionMatrixData <- "DUMMY"
+    save(insertionMatrixData, file = dataOutPath)
+    
   } else {
-    cat("Output file not found. Processing", "\n")
     
-    #### Load libraries ####
-    cat("Loading libraries", "\n")
-    suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
-    suppressMessages(library(Biostrings))
-    suppressMessages(library(MotifDb))
-    suppressMessages(library(GenomicRanges))
-    suppressMessages(library(Rsamtools))
-    suppressMessages(library(GenomicAlignments))
-    suppressMessages(library(ChIPseeker))
-    suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
-    suppressMessages(library(genomation))
-    suppressMessages(library(stringr))
-    genome <- Hsapiens
-    txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+    #### Subset binding sites to current chunk ####
+    cat("Subsetting binding sites", "\n")
+    currentSites <- splitGRangesToBin(bindingSites, 40, currentChunk)
     
-    #### Generate the output directory path ####
-    outputDirectory <- str_replace(snakeTouchPath, "(?<=insertions/).*", paste0(geneName, "/"))
-    cat("Generating output directory at path:", outputDirectory, "\n")
-    dir.create(path = outputDirectory, showWarnings = FALSE)
-    
-    #### Source functions ####
-    cat("Loading functions from path:", functionSourcePath, "\n")
-    source(functionSourcePath)
-    
-    #### Retrieve the binding sites for the current gene ####
-    cat("Loading binding sites", "\n")
-    load(bindingSitesPath)
-    
-    numSites <- length(bindingSites@ranges)
-    cat("Identified", numSites, "total binding sites", "\n")
-    
-    if (numSites == 0){
-      cat("No binding sites identified, exiting", "\n")
+    if (is.null(currentSites)){
+      cat("No binding sites in current chunk, outputting dummy file", "\n")
+      insertionMatrixData <- "DUMMY"
+      save(insertionMatrixData, file = dataOutPath)
+      
     } else {
       
-      #### Determine scope for current binding sites ####
+      ####
+      numCurrentSites <- length(currentSites@ranges)
+      cat("Identified", numCurrentSites, "in current chunk", "\n")
       maxWidth <- max(bindingSites@ranges@width)
-      scope <- paste0("chr", c(1:22, "X", "Y"))
-      cat("scope of analysis:", scope, "\n")
-      currentScope <- scope[which(scope %in% bindingSites@seqnames@values)]
-      cat("scope of current binding sites:", currentScope, "\n")
+      cat("Maximum width of binding sites:", maxWidth, "\n")
       
-      #### Generate insertion matrix for all sites ####
-      for (item in currentScope)
-      {
-        ##
-        cat("Processing insertion matrix for", item, "\n")
-        
-        ## Subset the binding sites
-        cat("Subsetting binding sites", "\n")
-        com <- paste0("currentSites <- bindingSites[seqnames(bindingSites) == '", item, "']")
-        eval(parse(text = com))
-        
-        ## Generate the matrix
-        cat("Generating insertion matrix", "\n")
-        insMatrix <- generateInsertionMatrix(bamPath, currentSites, maxWidth)
-        
-        ## Make the list
-        cat("Storing data", "\n")
-        insertionMatrixData <- list()
-        insertionMatrixData$bindingSites <- currentSites
-        insertionMatrixData$insertionMatrix <- insMatrix
-        
-        ## Save the file
-        matrixOutPath <- paste0(outputDirectory, item, ".", geneName, ".insertionMatrix.RData")
-        cat("Saving insertion matrix at path:", matrixOutPath, "\n")
-        save(insertionMatrixData, file = matrixOutPath)
-      }
+      ## Generate the matrix
+      cat("Generating insertion matrix", "\n")
+      insMatrix <- generateInsertionMatrix(bamPath, currentSites, maxWidth)
       
-      #### Touch the snakemake file ####
-      cat("Finished, touching snakemake file", "\n")
-      file.create(snakeTouchPath, showWarnings = FALSE)
+      ## Make the list
+      cat("Storing data", "\n")
+      insertionMatrixData <- list()
+      insertionMatrixData$bindingSites <- currentSites
+      insertionMatrixData$insertionMatrix <- insMatrix
       
+      ## Save the file
+      cat("Saving insertion matrix", "\n")
+      save(insertionMatrixData, file = dataOutPath)
     }
   }
-
 }, finally = {
 })

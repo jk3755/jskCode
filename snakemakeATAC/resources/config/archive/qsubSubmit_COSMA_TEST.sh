@@ -1,5 +1,5 @@
 #!/bin/bash
-#$ -N ATAC
+#$ -N footprinting_cosma_test
 #$ -j y
 #$ -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac
 #$ -pe smp 4
@@ -12,7 +12,7 @@ echo "Activating snakemake env"
 source activate snakemake
 # Set up the desired variables for running the job
 echo "Setting up variables"
-TARGETRULE="footprinting_cosma_pwm90"
+TARGETRULE="footprinting_cosma_test"
 SNAKEFILE="/ifs/scratch/c2b2/ac_lab/jk3755/atac/ATAC.snakefile"
 WORKDIR="/ifs/scratch/c2b2/ac_lab/jk3755/atac"
 CONDADIR="conda"
@@ -39,7 +39,7 @@ snakemake \
 --cores $CORES \
 UNLOCK \
 --cluster-config $CLUSTCONFIG \
---cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/log.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+--cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/footprinting_cosma_test.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
 --use-conda \
 --conda-prefix $CONDADIR \
 --restart-times $JOBRESTARTS \
@@ -47,6 +47,22 @@ UNLOCK \
 --rerun-incomplete \
 --unlock
 #### Run the pipeline, single logfile
+#echo "Spooling the snakemake pipeline"
+# snakemake \
+# --snakefile $SNAKEFILE \
+# --cores $CORES \
+# --local-cores $LOCALCORES \
+# $TARGETRULE \
+# --cluster-config $CLUSTCONFIG \
+# --cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/footprinting_cosma_test.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+# --use-conda \
+# --conda-prefix $CONDADIR \
+# --restart-times $JOBRESTARTS \
+# --latency-wait $LATENCYWAIT \
+# --rerun-incomplete \
+# --max-jobs-per-second 100
+####
+#### Run the pipeline, individual logfiles
 echo "Spooling the snakemake pipeline"
 snakemake \
 --snakefile $SNAKEFILE \
@@ -54,26 +70,10 @@ snakemake \
 --local-cores $LOCALCORES \
 $TARGETRULE \
 --cluster-config $CLUSTCONFIG \
---cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/log.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+--cluster "qsub -terse -j y -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
 --use-conda \
 --conda-prefix $CONDADIR \
 --restart-times $JOBRESTARTS \
 --latency-wait $LATENCYWAIT \
 --rerun-incomplete \
 --max-jobs-per-second 100
-####
-#### Run the pipeline, individual logfiles
-# echo "Spooling the snakemake pipeline"
-# snakemake \
-# --snakefile $SNAKEFILE \
-# --cores $CORES \
-# --local-cores $LOCALCORES \
-# $TARGETRULE \
-# --cluster-config $CLUSTCONFIG \
-# --cluster "qsub -terse -j y -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
-# --use-conda \
-# --conda-prefix $CONDADIR \
-# --restart-times $JOBRESTARTS \
-# --latency-wait $LATENCYWAIT \
-# --rerun-incomplete \
-# --max-jobs-per-second 100

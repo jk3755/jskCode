@@ -1,4 +1,10 @@
 
+#### IMPORTANT ####
+## MUST DISABLE SCIENTIFIC NOTATION
+## OR PEAKS STARTING AT COORDS ENDING IN 000 etc
+## WILL BE CONVERTED TO EXPONENETS AND WILL CAUSE ERRORS
+options(scipen = 999)
+
 ######################################################################################################################################
 #### Common Functions ################################################################################################################
 ######################################################################################################################################
@@ -270,28 +276,41 @@ splitGRangesToBin <- function(inputGR, numBins, returnBin){
   
   ##
   numSites <- length(inputGR)
-  cat("Found", numSites, "total sites in the input GR", "\n")
   
-  ##
-  grVec <- 1:numSites
-  binInfo <- chunk(grVec, numBins)
-  com <- paste0("binIdx <- binInfo[['", returnBin, "']]")
-  eval(parse(text = com))
-  binIdx <- as.numeric(binIdx)
-
-  ## Add metadata indices
-  score <- bindingSites@elementMetadata@listData$score
-  score2 <- bindingSites@elementMetadata@listData$score2
-  idx <- grVec
-  df <- data.frame(score = score, score2 = score2, idx = idx)
-  mcols(bindingSites, use.names = FALSE) <- df
-  
-  ## Subset the GR
-  subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
-
-  ## Return the subset GR
-  return(subGR)
-  
+  ## Its possible no binding sites are found
+  if (numSites == 0){
+    
+    cat("No binding sites were found, returning NULL", "\n")
+    return(NULL)
+    
+  } else if (numSites < 45){
+    
+    if (returnBin == 1){return(inputGR)
+      
+    } else if (numSites > 45){
+      
+      cat("Found", numSites, "total sites in the input GR", "\n")
+      ##
+      grVec <- 1:numSites
+      binInfo <- chunk(grVec, numBins)
+      com <- paste0("binIdx <- binInfo[['", returnBin, "']]")
+      eval(parse(text = com))
+      binIdx <- as.numeric(binIdx)
+      
+      ## Add metadata indices
+      score <- bindingSites@elementMetadata@listData$score
+      score2 <- bindingSites@elementMetadata@listData$score2
+      idx <- grVec
+      df <- data.frame(score = score, score2 = score2, idx = idx)
+      mcols(bindingSites, use.names = FALSE) <- df
+      
+      ## Subset the GR
+      subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
+      
+      ## Return the subset GR
+      return(subGR)
+    }
+  }
 }
 
 ####
@@ -683,73 +702,114 @@ getAllBindingSites <- function(geneSymbol, pwmScanScore = "95%"){
   suppressMessages(library(Biostrings))
   suppressMessages(library(MotifDb))
   suppressMessages(library(GenomicRanges))
+  suppressMessages(library(TFBSTools))
   genome <- Hsapiens
   
-  ##
+  #### First, try to find gene in motifDb ####
   cat("Querying motifDB", "\n")
   mdbHuman <- query(MotifDb, 'hsapiens')
   cat(length(mdbHuman), "total records found in database", "\n")
-  
-  ##
   geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
-  cat("Found", length(geneIdx), "records matching current gene", "\n")
+  numMatchMotifDb <- length(geneIdx)
+  cat("Found", length(numMatchMotifDb), "records matching current gene", "\n")
   
-  ##
-  cat("Retrieving relevant records", "\n")
-  tempMotifs <- list()
-  c <- 1
-  for (idx in geneIdx){
-    tempMotifs[c] <- mdbHuman@listData[idx]
-    c <- c+1}
-  
-  ##
-  cat("finding unique motifs", "\n")
-  uniqueMotifs <- unique(tempMotifs)
-  numUniqueMotifs <- length(uniqueMotifs)
-  cat("found", numUniqueMotifs, "unique motifs", "\n")
-  
-  ##
-  if (numUniqueMotifs > 1){
-    cat("processing more than one unique motif", "\n")
-    PWM <- uniqueMotifs[[1]]
-    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+  ## If found in motifDb, process
+  if (numMatchMotifDb > 0){
+    
+    cat("Found gene in motifDB", "\n")
+    
+    ##
+    cat("Retrieving relevant records", "\n")
+    tempMotifs <- list()
+    c <- 1
+    for (idx in geneIdx){
+      tempMotifs[c] <- mdbHuman@listData[idx]
+      c <- c+1}
+    
+    ##
+    cat("finding unique motifs", "\n")
+    uniqueMotifs <- unique(tempMotifs)
+    numUniqueMotifs <- length(uniqueMotifs)
+    cat("found", numUniqueMotifs, "unique motifs", "\n")
+    
+    ##
+    if (numUniqueMotifs > 1){
+      cat("processing more than one unique motif", "\n")
+      PWM <- uniqueMotifs[[1]]
+      allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+      allSites <- trim(allSites)
+      allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+      for (a in 2:numUniqueMotifs){
+        com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
+        eval(parse(text = com))
+        sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+        sitesTemp <- keepStandardChromosomes(sitesTemp, pruning.mode = "coarse")
+        sitesTemp <- trim(sitesTemp)
+        sitesTemp@elementMetadata@listData$score2 <- sitesTemp@elementMetadata@listData[["score"]] / max(sitesTemp@elementMetadata@listData[["score"]])
+        allSites <- c(allSites, sitesTemp)}
+    } else {
+      cat("processing one unique motif", "\n")
+      PWM <- uniqueMotifs[[1]]
+      allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+      allSites <- trim(allSites)
+      allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+    }
+    
+    ## Remove chrM entries
+    cat("Removing mitochondrial binding sites, if present", "\n")
+    indexChrM <- which(seqnames(allSites) == "chrM")
+    if (length(indexChrM > 0)){
+      allSites <- allSites[-indexChrM]
+    }
+    
+    ## Perform final trim to standard only
+    cat("Trimming to standard chromosomes only", "\n")
     allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
     allSites <- trim(allSites)
-    allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
-    for (a in 2:numUniqueMotifs){
-      com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
-      eval(parse(text = com))
-      sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-      sitesTemp <- keepStandardChromosomes(sitesTemp, pruning.mode = "coarse")
-      sitesTemp <- trim(sitesTemp)
-      sitesTemp@elementMetadata@listData$score2 <- sitesTemp@elementMetadata@listData[["score"]] / max(sitesTemp@elementMetadata@listData[["score"]])
-      allSites <- c(allSites, sitesTemp)}
-  } else {
-    cat("processing one unique motif", "\n")
-    PWM <- uniqueMotifs[[1]]
-    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-    allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
-    allSites <- trim(allSites)
-    allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
-  }
+    allSites <- sortSeqlevels(allSites)
+    allSites <- sort(allSites)
+    
+    ##
+    cat("Returning binding sites", "\n")
+    return(allSites)
+    
+  } # end motifDB processing
   
-  ## Remove chrM entries
-  cat("Removing mitochondrial binding sites, if present", "\n")
-  indexChrM <- which(seqnames(allSites) == "chrM")
-  if (length(indexChrM > 0)){
-    allSites <- allSites[-indexChrM]
-  }
-  
-  ## Perform final trim to standard only
-  cat("Trimming to standard chromosomes only", "\n")
-  allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
-  allSites <- trim(allSites)
-  allSites <- sortSeqlevels(allSites)
-  allSites <- sort(allSites)
-  
-  ##
-  cat("Returning binding sites", "\n")
-  return(allSites)}
+  ## If not found in motifDb, try to load from pwm folder
+  if (numMatchMotifDb == 0){
+    cat("No matches found in motifDB, trying local jaspar database", "\n")
+    workDir <- getwd()
+    jasparPath <- paste0(workDir, "/resources/pwm/", geneSymbol, ".jaspar")
+    
+    if (file.exists(jasparPath)){
+      cat("File found at path", jasparPath, "\n")
+      cat("Importing JASPAR matrix", "\n")
+      matrix <- readJASPARMatrix(jasparPath, matrixClass = "PWM")
+      PWM <- matrix@listData[[1]]@profileMatrix
+      ## Get binding sites and add score2
+      cat("Scanning for binding sites", "\n")
+      allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      allSites@elementMetadata@listData$score2 <- allSites@elementMetadata@listData[["score"]] / max(allSites@elementMetadata@listData[["score"]])
+      ## Remove chrM entries
+      cat("Removing mitochondrial binding sites, if present", "\n")
+      indexChrM <- which(seqnames(allSites) == "chrM")
+      if (length(indexChrM > 0)){
+        allSites <- allSites[-indexChrM]
+      }
+      ## Perform final trim to standard only, reorder
+      cat("Trimming to standard chromosomes only", "\n")
+      allSites <- keepStandardChromosomes(allSites, pruning.mode = "coarse")
+      allSites <- trim(allSites)
+      allSites <- sortSeqlevels(allSites)
+      allSites <- sort(allSites)
+      ##
+      cat("Returning binding sites", "\n")
+      return(allSites)
+    } # end filecheck
+  } # end if numMatchMotifDB = 0
+}
 
 #### Query motifDB to return binding sites of given gene ####
 getAllBindingSitesJASPAR <- function(jasparPath, pwmScanScore = "95%"){
@@ -1113,14 +1173,14 @@ generateNullFootprintSeqbiasCorrected <- function(totalSignal, bindingSite, seqb
   #cat("Upstream search:", upstream, "\n")
   #cat("Downstream search:", downstream, "\n")
   #cat("Null model iterations:", iterations, "\n")
-
+  
   ## Load required libraries
   #cat("Loading libraries", "\n")
   suppressMessages(library(seqbias))
   suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
   suppressMessages(library(GenomicRanges))
   suppressMessages(library(Biostrings))
-
+  
   ## Get binding site info
   #cat("Getting binding site info", "\n")
   motifWidth <- bindingSite@ranges@width
@@ -1136,7 +1196,7 @@ generateNullFootprintSeqbiasCorrected <- function(totalSignal, bindingSite, seqb
   extStartNew <- extStart - upstream
   start(extSite) <- extStartNew
   width(extSite) <- windowLength
-
+  
   ## Load the seqbias model
   #cat("Loading the seqbias model", "\n")
   seqbiasModel <- seqbias.load(fastaPath, seqbiasPath)
@@ -1296,7 +1356,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   for (b in 1:numSites){
     
     ##
-    cat("Processing site", b, "of", numSites, "\n")
+    #cat("Processing site", b, "of", numSites, "\n")
     
     ##
     motifWidth <- tempWidth[b]
@@ -1334,10 +1394,10 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
       #currentSite <- bindingSites[b]
       #currentSite <- bind[(elementMetadata(bind)[, "idx"] %in% 1)]
       averageNullMotifSignals <- generateNullFootprint(totalSignal = tempTotalSignal[b],
-                                                      bindingSite = bindingSites[b],
-                                                      upstream = upstream,
-                                                      downstream = downstream,
-                                                      iterations = 1000)
+                                                       bindingSite = bindingSites[b],
+                                                       upstream = upstream,
+                                                       downstream = downstream,
+                                                       iterations = 1000)
       averageNullMotifSignal <- mean(averageNullMotifSignals)
       motifSignals <- c(insMatrix[b, motifStart:motifEnd])
       
@@ -1409,7 +1469,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   # cat("zscore:", length(tempZscore), "\n")
   # cat("annotation:", length(tempAnnotation), "\n")
   # cat("symbol:", length(tempSymbol), "\n")
-
+  
   #### Convert to a dataframe before return ####
   ## This allows you to store different data types
   cat("Transferring data to dataframe", "\n")
@@ -1535,12 +1595,12 @@ generateFootprintStatsSeqbiasCorrected <- function(insMatrix, bindingSites, samp
       cat("Total signal is non-zero", "\n")
       cat("Calculating null signals", "\n")
       averageNullMotifSignals <- generateNullFootprintSeqbiasCorrected(totalSignal = tempTotalSignal[b],
-                                                                      bindingSite = bindingSites[b],
-                                                                      seqbiasPath = seqbiasPath,
-                                                                      fastaPath = fastaPath,
-                                                                      upstream = upstream,
-                                                                      downstream = downstream,
-                                                                      iterations = 1000)
+                                                                       bindingSite = bindingSites[b],
+                                                                       seqbiasPath = seqbiasPath,
+                                                                       fastaPath = fastaPath,
+                                                                       upstream = upstream,
+                                                                       downstream = downstream,
+                                                                       iterations = 1000)
       averageNullMotifSignal <- mean(averageNullMotifSignals)
       cat("Determining motif signal", "\n")
       motifSignals <- c(insMatrix[b, motifStart:motifEnd])
@@ -1639,17 +1699,18 @@ aggregateFootprintStats <- function(inputFiles, geneNames){
   
   ## Prevent R from converting strings to factors (as is done in data frames)
   options(stringsAsFactors = FALSE)
-
+  
   ## Report
   cat("Running aggregateFootprintStats function", "\n")
   numFiles <- length(inputFiles)
   cat("Number of input files:", numFiles, "\n")
   
-  ## 
+  ##
   footprintStatsList <- list()
   
   ##
   for (a in 1:numFiles){
+    
     load(inputFiles[a])
     geneName <- geneNames[a]
     ##
@@ -1700,7 +1761,7 @@ generateSeqbiasModel <- function(fastaPath, bamPath, bedPath, biasedPlotPath, co
   # set stand info
   strand(refBED) <- c("+", "-")
   refBED@strand@values <- droplevels(refBED@strand@values)
-
+  
   ## Load the reference fasta file
   cat("Loading reference fasta", "\n")
   refFasta <- FaFile(fastaPath)
@@ -1779,6 +1840,54 @@ generateSeqbiasModel <- function(fastaPath, bamPath, bedPath, biasedPlotPath, co
   cat("Saving seqbias model", "\n")
   seqbias.save(seqBiasModel, seqbiasModelPath)}
 
+#### Correct bias in an insertion matrix ####
+correctBiasInsertionMatrix <- function(insertionMatrixData, seqbiasModelPath, refFastaPath, upstream = 100, downstream = 100){
+  
+  ##
+  cat("Loading libraries", "\n")
+  suppressMessages(library(seqbias))
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(Biostrings))
+  
+  ## Load the seqbias model
+  cat("Loading the seqbias model", "\n")
+  seqbiasModel <- seqbias.load(fastaPath, seqbiasPath)
+  
+  ##
+  cat("Loading data", "\n")
+  sites <- insertionMatrixData[["bindingSites"]]
+  ins <- insertionMatrixData[["insertionMatrix"]]
+  numSites <- length(ins[,1])
+  analysisWindow <- length(ins[1,])
+  
+  ## Get binding site info
+  cat("Getting binding site info", "\n")
+  motifStrand <- as.character(sites@strand)
+  motifChr <- as.character(sites@seqnames)
+  motifWidth <- max(sites@ranges@width)
+  motifStart <- sites@ranges@start - upstream
+  motifEnd <- motifStart + motifWidth + downstream + upstream - 1
+  df <- data.frame(chr = motifChr,
+                   start = motifStart,
+                   end = motifEnd,
+                   strand = motifStrand)
+  grSite <- makeGRangesFromDataFrame(df)
+  
+  ##
+  cat("Predicting bias", "\n")
+  biasPrediction <- seqbias.predict(seqbiasModel, grSite)
+  
+  ## adjust the insertions
+  cat("Adjusting insertions", "\n")
+  adjustedInsertions <- matrix(data = NA, nrow = numSites, ncol = analysisWindow)
+  for (a in 1:numSites){
+    adjustedInsertions[a,] <- ins[a,] / biasPrediction[[a]]}
+  
+  ## return
+  cat("Returning adjusted counts matrix", "\n")
+  return(adjustedInsertions)
+}
 
 ######################################################################################################################################
 #### Gene Accessibility Functions ####################################################################################################
@@ -1792,7 +1901,7 @@ getGenePromoterAccessibility <- function(bamPath, entrezID = "ALL", upstream = 5
   
   ## Load required libraries
   suppressMessages(library(Rsamtools))
-
+  
   ## Get the promoter window for genes, resort the GR
   promoterWindows <- getPromoterWindow(upstream = upstream, downstream = downstream)
   promoterWindows <- sortSeqlevels(promoterWindows)

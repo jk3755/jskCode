@@ -5,6 +5,7 @@ configfile: "resources/config/config.yaml"
 include: "resources/modules/spoolPreprocessing.snakefile"
 include: "resources/modules/spoolFootprinting.snakefile"
 include: "resources/modules/spoolFullAnalysis.snakefile"
+include: "resources/modules/spoolFootprintingGrouped.snakefile"
 
 ########################################################################################################################################
 #### UNLOCK TARGET #####################################################################################################################
@@ -601,87 +602,11 @@ rule METRICS_generate_peak_annotations:
     script:
         "resources/scripts/preprocessing/annotatePeaks.R"
 
-########################################################################################################################################
-#### FOOTPRINTING - JASPAR #############################################################################################################
-########################################################################################################################################
-
-## Step 1, determine the binding sites
-rule FOOTPRINTING_generate_binding_sites_sm_JASPAR:
-    input:
-        "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R",
-        "resources/jaspar/pwm/{ID}.pwm.RData"        
-    output:
-        "{path}footprints/jas/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.bind.jp.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/generateBindingSitesJaspar.R"
-
-## Step 2, generate the insertion matrix
-rule FOOTPRINTING_generate_insertion_matrix_sm_JASPAR:
-    input:
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
-        "{path}footprints/jas/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.bind.jp.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/jas/insertions/{sample}.rep{repnum}.ref{refgenome}.{ID}.complete.jp"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 12
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrixJaspar.R"
-
-## Step 3, generate the footprint stats table
-rule FOOTPRINTING_generate_footprint_stats_sm_JASPAR:
-    input:
-        "{path}footprints/jas/insertions/{sample}.rep{repnum}.ref{refgenome}.{ID}.complete.jp",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/jas/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.stats.complete.jp"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 12
-    script:
-        "resources/scripts/footprinting/generateFootprintStatsByChrJaspar.R"
-
-## Step 4, aggregate the by chr stats tables into a single file
-rule FOOTPRINTING_aggregate_footprint_stats_sm_JASPAR:
-    input:
-        "{path}footprints/jas/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.stats.complete.jp",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/jas/aggregated/{sample}.rep{repnum}.ref{refgenome}.{ID}.RData.jp"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/aggregateFootprintStatsJaspar.R"
-
-##
-rule AGGREGATOR_footprinting_JASPAR:
-    input:
-        expand("{{path}}footprints/jas/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{jasparID}.RData.jp", jasparID=config["jasparNames"])
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.jp"
-    shell:
-        "touch {output}"
 
 ########################################################################################################################################
 #### FOOTPRINTING ######################################################################################################################
 ########################################################################################################################################
 
-## Step 1, determine the binding sites
 rule FOOTPRINTING_generate_binding_sites_sm:
     input:
         ancient("{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak"),
@@ -696,7 +621,6 @@ rule FOOTPRINTING_generate_binding_sites_sm:
     script:
         "resources/scripts/footprinting/generateBindingSites.R"
 
-## Step 2, generate the insertion matrix
 rule FOOTPRINTING_generate_insertion_matrix_sm:
     input:
         ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam"),
@@ -708,12 +632,11 @@ rule FOOTPRINTING_generate_insertion_matrix_sm:
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/generateInsertionMatrixChunked.R"
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
 
-## Step 3, generate the footprint stats table
 rule FOOTPRINTING_generate_footprint_stats_sm:
     input:
         ancient("{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.RData"),
@@ -723,60 +646,20 @@ rule FOOTPRINTING_generate_footprint_stats_sm:
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/generateFootprintStatsChunked.R"
+        "resources/scripts/footprinting/generateFootprintStats.R"
 
 rule FOOTPRINTING_fork_footprint_stats_sm:
     input:
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.1.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.2.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.3.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.4.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.5.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.6.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.7.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.8.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.9.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.10.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.11.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.12.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.13.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.14.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.15.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.16.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.17.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.18.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.19.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.20.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.21.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.22.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.23.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.24.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.25.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.26.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.27.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.28.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.29.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.30.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.31.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.32.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.33.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.34.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.35.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.36.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.37.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.38.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.39.stats.RData"),
-        ancient("{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.40.stats.RData")
+        ancient(expand("{{path}}footprints/sm/stats/{{gene}}/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.RData", chunkNum=config["chunkFootprinting"]))
     output:
         "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.complete"
     shell:
         "touch {output}"
 
-## Step 4, aggregate the by chr stats tables into a single file
-rule FOOTPRINTING_aggregate_footprint_stats_sm_chunked:
+rule FOOTPRINTING_aggregate_footprint_stats_sm:
     input:
         ancient("{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.complete"),
         ancient("resources/functions/atacFunctions.R")
@@ -788,148 +671,167 @@ rule FOOTPRINTING_aggregate_footprint_stats_sm_chunked:
         mem_mb=lambda params, attempt: attempt * 10000,
         run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/aggregateFootprintStatsChunked.R"
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
 
-##
-rule AGGREGATOR_footprinting_chunked:
+rule AGGREGATOR_footprinting:
     input:
-        expand(ancient("{{path}}footprints/chunked/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData"), genename=config["geneNames"])
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenes"]))
     output:
         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm"
     shell:
         "touch {output}"
 
-
 ########################################################################################################################################
-#### FOOTPRINTING - JASPAR CHUNKED #####################################################################################################
+#### FOOTPRINTING GROUPED ##############################################################################################################
 ########################################################################################################################################
-
-## Step 1, determine the binding sites
-rule FOOTPRINTING_generate_binding_sites_sm_JASPAR_chunked:
+rule AGGREGATOR_footprinting_group1:
     input:
-        "{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R",
-        "resources/jaspar/pwm/{ID}.pwm.RData"        
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup1"]))
     output:
-        "{path}footprints/jaspar/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.bind.jp.RData"
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group1"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group2:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup2"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group2"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group3:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup3"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group3"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group4:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup4"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group4"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group5:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup5"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group5"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group6:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup6"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group6"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group7:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup7"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group7"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group8:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup8"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group8"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group9:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup9"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group9"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group10:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup10"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group10"
+    shell:
+        "touch {output}"
+
+
+########################################################################################################################################
+#### FOOTPRINTING CORRECTED ############################################################################################################
+########################################################################################################################################
+
+rule FOOTPRINTING_generate_corrected_insertion_matrix_sm:
+    input:
+        ancient("{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.corrected.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/correctInsertionMatrix.R"
+
+rule FOOTPRINTING_generate_footprint_stats_sm_corrected:
+    input:
+        ancient("{path}footprints/corrected/sm/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.corrected.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.stats.corrected.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule FOOTPRINTING_fork_footprint_stats_sm_corrected:
+    input:
+        ancient(expand("{{path}}footprints/corrected/sm/stats/{{gene}}/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.corrected.RData", chunkNum=config["chunkFootprinting"]))
+    output:
+        "{path}footprints/corrected/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.corrected.complete"
+    shell:
+        "touch {output}"
+
+rule FOOTPRINTING_aggregate_footprint_stats_sm_corrected:
+    input:
+        ancient("{path}footprints/corrected/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.corrected.complete"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.sm.corrected.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
         mem_mb=lambda params, attempt: attempt * 10000,
         run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/generateBindingSitesJaspar.R"
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
 
-## Step 2, generate the insertion matrix
-rule FOOTPRINTING_generate_insertion_matrix_sm_jaspar_chunked:
+rule AGGREGATOR_footprinting_corrected:
     input:
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-        "{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai",
-        "{path}footprints/jaspar/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.bind.jp.RData",
-        "resources/functions/atacFunctions.R"
+        ancient(expand("{{path}}footprints/corrected/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.corrected.RData", genename=config["geneNames"]))
     output:
-        "{path}footprints/jaspar/sm/insertions/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.{chunk}.ins.jp.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 2
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrixChunkedJaspar.R"
-
-## Step 3, generate the footprint stats table
-rule FOOTPRINTING_generate_footprint_stats_sm_jaspar_chunked:
-    input:
-        "{path}footprints/jaspar/sm/insertions/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.{chunk}.ins.jp.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.{chunk}.stats.jp.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 2
-    script:
-        "resources/scripts/footprinting/generateFootprintStatsChunkedJaspar.R"
-
-rule FOOTPRINTING_fork_footprint_stats_jaspar_chunked:
-    input:
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.1.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.2.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.3.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.4.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.5.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.6.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.7.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.8.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.9.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.10.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.11.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.12.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.13.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.14.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.15.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.16.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.17.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.18.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.19.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.20.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.21.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.22.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.23.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.24.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.25.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.26.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.27.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.28.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.29.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.30.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.31.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.32.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.33.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.34.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.35.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.36.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.37.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.38.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.39.stats.jp.RData",
-        "{path}footprints/jaspar/sm/stats/{ID}/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.40.stats.jp.RData"
-    output:
-        "{path}footprints/jaspar/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.jp.complete"
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.corrected.sm"
     shell:
         "touch {output}"
-
-## Step 4, aggregate the by chr stats tables into a single file
-rule FOOTPRINTING_aggregate_footprint_stats_sm_jaspar_chunked:
-    input:
-        "{path}footprints/jaspar/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.jp.complete",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/jaspar/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{ID}.pwm{matchScore}.jp.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/aggregateFootprintStatsChunkedJaspar.R"
-
-##
-rule AGGREGATOR_footprinting_jaspar_chunked:
-    input:
-        expand("{{path}}footprints/jaspar/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{ID}.pwm{{matchScore}}.jp.RData", ID=config["jasparNames"])
-    output:
-        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.jp"
-    shell:
-        "touch {output}"
-
 
 
 ########################################################################################################################################
 #### SEQBIAS MODELS ####################################################################################################################
 ########################################################################################################################################
 
-## This rule determines what is run for the footprinting analysis
 rule AGGREGATOR_seqbias_models:
     input:
         "{path}seqbias/{sample}.rep{repnum}.ref{refgenome}.seqbias_sample_reads_against_sample_peaks.yml",
@@ -939,7 +841,6 @@ rule AGGREGATOR_seqbias_models:
     shell:
         "touch {output}"
 
-##
 rule SEQBIAS_write_sample_peaks_to_BED:
     input:
         "{path}peaks/globalnorm/{sample}.rep{repnum}.ref{refgenome}_globalnorm_peaks.narrowPeak",
@@ -983,13 +884,13 @@ rule MERGE_sample_peaks_lncap:
 
 rule MERGE_sample_peaks_cosma:
     input:
-        "data/cosma/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/cosma/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R"
+        ancient("data/cosma/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
     output:
         "data/cosma/DAbaz2b/peaks/sm/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
         "data/cosma/DAluf/peaks/sm/DonorA_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
@@ -1007,7 +908,6 @@ rule MERGE_sample_peaks_cosma:
 #### WGS RULES #########################################################################################################################
 ########################################################################################################################################
 
-## BIGWIG
 rule WGS_make_bigwig:
     input:
         a="{path}aligned/{sample}.bam",
@@ -1027,7 +927,7 @@ rule WGS_make_bigwig:
 ## LNCAP ###############################################################################################################
 rule WGS_generate_binding_sites_sm_lncap:
     input:
-        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"),
         "resources/functions/atacFunctions.R"
     output:
         "{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"
@@ -1041,9 +941,9 @@ rule WGS_generate_binding_sites_sm_lncap:
 
 rule WGS_generate_insertion_matrix_sm_lncap:
     input:
-        "{path}aligned/{sample}.bam",
-        "{path}aligned/{sample}.bam.bai",
-        "{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData",
+        ancient("{path}aligned/{sample}.bam"),
+        ancient("{path}aligned/{sample}.bam.bai"),
+        ancient("{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"),
         "resources/functions/atacFunctions.R"
     output:
         "{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"
@@ -1053,12 +953,11 @@ rule WGS_generate_insertion_matrix_sm_lncap:
         mem_mb=lambda params, attempt: attempt * 20000,
         run_time=lambda params, attempt: attempt * 6
     script:
-        "resources/scripts/footprinting/generateInsertionMatrixChunked.R"
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
 
-## FOOTPRINT STATS
 rule WGS_generate_footprint_stats_sm_lncap:
     input:
-        "{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData",
+        ancient("{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"),
         "resources/functions/atacFunctions.R"
     output:
         "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.stats.wgs.lncap.RData"
@@ -1068,56 +967,16 @@ rule WGS_generate_footprint_stats_sm_lncap:
         mem_mb=lambda params, attempt: attempt * 20000,
         run_time=lambda params, attempt: attempt * 6
     script:
-        "resources/scripts/footprinting/generateFootprintStatsChunked.R"
+        "resources/scripts/footprinting/generateFootprintStats.R"
 
 rule WGS_fork_footprint_stats_lncap:
     input:
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.1.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.2.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.3.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.4.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.5.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.6.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.7.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.8.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.9.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.10.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.11.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.12.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.13.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.14.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.15.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.16.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.17.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.18.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.19.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.20.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.21.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.22.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.23.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.24.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.25.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.26.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.27.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.28.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.29.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.30.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.31.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.32.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.33.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.34.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.35.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.36.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.37.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.38.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.39.stats.wgs.lncap.RData",
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.40.stats.wgs.lncap.RData"
+        ancient(expand("{{path}}footprints/lncap/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.lncap.RData", chunkNum=config["chunkFootprinting"]))
     output:
         "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete"
     shell:
         "touch {output}"
 
-## AGGREGATE
 rule WGS_aggregate_footprint_stats_sm_lncap:
     input:
         "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete",
@@ -1130,12 +989,11 @@ rule WGS_aggregate_footprint_stats_sm_lncap:
         mem_mb=lambda params, attempt: attempt * 10000,
         run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/aggregateFootprintStatsChunked.R"
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
 
-## FINAL
 rule WGS_AGGREGATOR_footprinting_lncap:
     input:
-        expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["geneNames"])
+        expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["WGSlncap"])
     output:
         "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.complete"
     shell:
@@ -1145,17 +1003,16 @@ rule WGS_AGGREGATOR_footprinting_lncap:
 rule WGS_generate_binding_sites_sm_cosma:
     input:
         "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R",
-        "resources/jaspar/pwm/{ID}.pwm.RData" 
+        "resources/functions/atacFunctions.R"
     output:
-        "{path}footprints/cosma/sites/{sample}.{ID}.pwm{matchScore}.bind.wgs.cosma.RData"
+        "{path}footprints/cosma/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.cosma.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
         mem_mb=lambda params, attempt: attempt * 10000,
         run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/generateBindingSitesJaspar.R"
+        "resources/scripts/footprinting/generateBindingSites.R"
 
 rule WGS_generate_insertion_matrix_sm_cosma:
     input:
@@ -1171,9 +1028,8 @@ rule WGS_generate_insertion_matrix_sm_cosma:
         mem_mb=lambda params, attempt: attempt * 20000,
         run_time=lambda params, attempt: attempt * 6
     script:
-        "resources/scripts/footprinting/generateInsertionMatrixChunkedJaspar.R"
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
 
-## FOOTPRINT STATS
 rule WGS_generate_footprint_stats_sm_cosma:
     input:
         "{path}footprints/cosma/insertions/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.ins.wgs.cosma.RData",
@@ -1186,74 +1042,33 @@ rule WGS_generate_footprint_stats_sm_cosma:
         mem_mb=lambda params, attempt: attempt * 20000,
         run_time=lambda params, attempt: attempt * 6
     script:
-        "resources/scripts/footprinting/generateFootprintStatsChunkedJaspar.R"
+        "resources/scripts/footprinting/generateFootprintStats.R"
 
 rule WGS_fork_footprint_stats_cosma:
     input:
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.1.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.2.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.3.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.4.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.5.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.6.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.7.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.8.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.9.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.10.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.11.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.12.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.13.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.14.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.15.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.16.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.17.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.18.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.19.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.20.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.21.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.22.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.23.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.24.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.25.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.26.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.27.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.28.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.29.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.30.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.31.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.32.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.33.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.34.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.35.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.36.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.37.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.38.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.39.stats.wgs.cosma.RData",
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.40.stats.wgs.cosma.RData"
+        ancient(expand("{{path}}footprints/cosma/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.cosma.RData", chunkNum=config["chunkFootprinting"]))
     output:
-        "{path}footprints/cosma/stats/{sample}.{ID}.pwm{matchScore}.wgs.cosma.complete"
+        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete"
     shell:
         "touch {output}"
 
-## AGGREGATE
 rule WGS_aggregate_footprint_stats_sm_cosma:
     input:
-        "{path}footprints/cosma/stats/{sample}.{ID}.pwm{matchScore}.wgs.cosma.complete",
+        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete",
         "resources/functions/atacFunctions.R"
     output:
-        "{path}footprints/cosma/aggregated/{sample}.{ID}.pwm{matchScore}.wgs.cosma.RData"
+        "{path}footprints/cosma/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.cosma.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
     resources:
         mem_mb=lambda params, attempt: attempt * 10000,
         run_time=lambda params, attempt: attempt * 1
     script:
-        "resources/scripts/footprinting/aggregateFootprintStatsChunkedJaspar.R"
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
 
-## FINAL
 rule WGS_AGGREGATOR_footprinting_cosma:
     input:
-        expand("{{path}}footprints/cosma/aggregated/{{sample}}.{ID}.pwm{{matchScore}}.wgs.cosma.RData", ID=config["jasparNames"])
+        expand("{{path}}footprints/cosma/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.cosma.RData", genename=config["WGScosma"])
     output:
         "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.cosma.complete"
     shell:
