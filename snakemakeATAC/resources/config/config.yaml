@@ -10,36 +10,11 @@ chunkFootprinting:
   - 8
   - 9
   - 10
-  - 11
-  - 12
-  - 13
-  - 14
-  - 15
-  - 16
-  - 17
-  - 18
-  - 19
-  - 20
-  - 21
-  - 22
-  - 23
-  - 24
-  - 25
-  - 26
-  - 27
-  - 28
-  - 29
-  - 30
-  - 31
-  - 32
-  - 33
-  - 34
-  - 35
-  - 36
-  - 37
-  - 38
-  - 39
-  - 40
+
+# Genes for alessandro that are in MDB
+TEST:
+  - FOXM1
+  - E2F1
 
 # All genes that are present in motifDb
 allGenes:
@@ -1692,7 +1667,7 @@ allGenes:
   - HOXB6
 
 # Genes for alessandro that are in MDB
-geneNamesREMOVE:
+geneNames:
   - FOXM1
   - E2F1
   - RPL6
@@ -1752,9 +1727,10 @@ geneNamesREMOVE:
 # Testing JASPAR
 jasparTEST:
   - MA0002-2
+  - MA0029-1
 
 # JASPAR motifs karthik cosma
-geneNames:
+geneNamesREMOVE:
   - MA0002-2
   - MA0029-1
   - MA0038-1
@@ -3578,3 +3554,112 @@ allGenesGroup10:
   - ZSCAN9
   - HOXA6
   - HOXB6
+
+tempGenes:
+  - IKZF1
+  - TFAM
+  - RCOR1
+  - YEATS4
+  - PITX1
+  - IRF1
+  - ENO1
+  - RBPJ
+  - FOXM1
+  - SPIB
+  - POU4F3
+  - NOC2L
+  - GATA4
+  - MYBL2
+  - RPL6
+  - FOXP3
+  - TIMELESS
+  - ZNF695
+  - ZNF706
+  - MIXL1
+  - BATF
+  - CBX3
+  - FLI1
+  - GATA1
+  - HCLS1
+  - E2F1
+  - RUNX3
+  - KLF1
+  - GFI1B
+  - ATF1
+  - POU2F2
+  - STAT4
+  - TFEC
+  - NFYB
+  - TBPL1
+  - YBX1
+  - TCF7L2
+  - TBX21
+  - GABPA
+  - EOMES
+  - RUVBL1
+  - VENTX
+  - E2F2
+  - HNF4A
+  - AR
+  - E2F7
+  - CEBPE
+  - IRF8
+  - MYBL1
+  - E2F8
+  - IRF4
+  - CDC5L
+  - EVI1
+  - TF7L1
+  - Trp53
+  - SP100
+  - PO3F3
+  - P5F1B
+  - HLX
+  - KLF7
+  - GZF1
+  - ZN639
+  - BHE41
+  - MCR
+  - AIRE
+  - HSFY1
+  - HMGA2
+  - RREB1
+  - PO4F3
+  - ZN423
+  - Trp73
+  - ZSCAN4
+  - PO3F4
+  - SIX3
+  - P53
+  - ZNF274
+  - HOXA7
+  - TF2LX
+  - ZNF410
+  - HXA7
+  - HXC6
+  - PTF1A
+  - ZKSCAN3
+  - ZNF306
+  - NKX61
+  - PRDM4
+  - SOX17
+  - HEN1
+  - ZNF8
+  - SPZ1
+  - MAFA
+  - ZN524
+  - ZBTB16
+  - PAX1
+  - THRB
+  - ZBTB49
+  - MGAP
+  - ZNF282
+  - ONEC2
+  - PAX9
+  - SPI1
+  - GATA3
+  - ZCCHC17
+
+ARgenes:
+  - AR
+  - FOXM1

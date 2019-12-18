@@ -4,6 +4,7 @@
 ## OR PEAKS STARTING AT COORDS ENDING IN 000 etc
 ## WILL BE CONVERTED TO EXPONENETS AND WILL CAUSE ERRORS
 options(scipen = 999)
+options(stringsAsFactors = FALSE)
 
 ######################################################################################################################################
 #### Common Functions ################################################################################################################
@@ -274,47 +275,189 @@ splitGRangesToBin <- function(inputGR, numBins, returnBin){
   suppressMessages(library(Biostrings))
   suppressMessages(library(GenomicRanges))
   
-  ##
+  ## Get number of sites
   numSites <- length(inputGR)
+  cat("Found", numSites, "total sites in the input GR", "\n")
   
-  ## Its possible no binding sites are found
-  if (numSites == 0){
-    
-    cat("No binding sites were found, returning NULL", "\n")
-    return(NULL)
-    
-  } else if (numSites < 45){
-    
-    if (returnBin == 1){return(inputGR)
-      
-    } else if (numSites > 45){
-      
-      cat("Found", numSites, "total sites in the input GR", "\n")
-      ##
-      grVec <- 1:numSites
-      binInfo <- chunk(grVec, numBins)
-      com <- paste0("binIdx <- binInfo[['", returnBin, "']]")
-      eval(parse(text = com))
-      binIdx <- as.numeric(binIdx)
-      
-      ## Add metadata indices
-      score <- bindingSites@elementMetadata@listData$score
-      score2 <- bindingSites@elementMetadata@listData$score2
-      idx <- grVec
-      df <- data.frame(score = score, score2 = score2, idx = idx)
-      mcols(bindingSites, use.names = FALSE) <- df
-      
-      ## Subset the GR
-      subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
-      
-      ## Return the subset GR
-      return(subGR)
-    }
-  }
+  ## Get the indices
+  grVec <- 1:numSites
+  binInfo <- chunk(grVec, numBins)
+  com <- paste0("binIdx <- binInfo[['", returnBin, "']]")
+  eval(parse(text = com))
+  binIdx <- as.numeric(binIdx)
+  
+  ## Add metadata indices
+  score <- bindingSites@elementMetadata@listData$score
+  score2 <- bindingSites@elementMetadata@listData$score2
+  idx <- grVec
+  df <- data.frame(score = score, score2 = score2, idx = idx)
+  mcols(bindingSites, use.names = FALSE) <- df
+  
+  ## Subset the GR and return
+  subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
+  return(subGR)
+  
+} # end splitGRangesToBin
+
+#### Generic function for chunking an value
+chunk <- function(x,n) split(x, cut(seq_along(x), n, labels = FALSE))
+
+#### Get hg38 reference in GRanges
+makeGRangeshg38 <- function(){
+  
+  ## Report
+  cat("Running makeGRangeshg38 function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(GenomicRanges))
+  
+  ## Get the GR
+  outGR <- GRanges(seqinfo(BSgenome.Hsapiens.UCSC.hg38))
+  
+  ## Clean it up
+  outGR <- keepStandardChromosomes(outGR, pruning.mode = "coarse")
+  outGR <- trim(outGR)
+  outGR <- sort(outGR)
+  
+  ## Return
+  return(outGR)
+}
+
+#### Return a DF with hg38 chromosome and their lengths
+getChrLengthsHg38 <- function(){
+  
+  chr1len <- 248956422
+  chr2len <- 242193529
+  chr3len <- 198295559
+  chr4len <- 190214555
+  chr5len <- 	181538259
+  chr6len <- 170805979
+  chr7len <- 159345973
+  chr8len <- 145138636
+  chr9len <- 	138394717
+  chr10len <- 133797422
+  chr11len <- 135086622
+  chr12len <- 133275309
+  chr13len <- 114364328
+  chr14len <- 107043718
+  chr15len <- 101991189
+  chr16len <- 90338345
+  chr17len <- 83257441
+  chr18len <- 80373285
+  chr19len <- 58617616
+  chr20len <- 64444167
+  chr21len <- 46709983
+  chr22len <- 50818468
+  chrXlen <- 156040895
+  chrYlen <- 57227415
+  #
+  lengths <- c(chr1len, chr2len, chr3len, chr4len, chr5len, chr6len, chr7len, chr8len, chr9len, chr10len,
+               chr11len, chr12len, chr13len, chr14len, chr15len, chr16len, chr17len, chr18len, chr19len, chr20len,
+               chr21len, chr22len, chrXlen, chrYlen)
+  #
+  id = factor(c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y"),
+              levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                         "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y"))
+  #
+  df <- data.frame(chr = id, length = lengths, stringsAsFactors = FALSE)
+  #
+  return(df)
 }
 
 ####
-chunk <- function(x,n) split(x, cut(seq_along(x), n, labels = FALSE))
+makeChrLabelsAsFactor <- function(){
+  id = factor(c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y"),
+              levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+                         "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "X", "Y"))
+  return(id)
+}
+
+#### Check if an ENTREZ id has a match in motifDb
+checkMotifDbforEntrezID <- function(geneEntrez){
+  
+  ## Report
+  cat("Running checkMotifDbforEntrezID function", "\n")
+  cat("Input entrez ID:", geneEntrez, "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(org.Hs.eg.db))
+  suppressMessages(library(MotifDb))
+  
+  ## Get ENTREZ/Symbol mappings
+  cat("Getting entrez/symbol mappings", "\n")
+  entrezMapList <- as.list(org.Hs.egALIAS2EG)
+  ## Remove entries with missing data
+  entrezMapList <- entrezMapList[!is.na(entrezMapList)]
+  ## Get the symbols
+  allSymbols <- names(entrezMapList)
+  numEntries <- length(allSymbols)
+  ## Seems like the first symbol/entrez mapping is accurate, only use first id where more than one entrez id is given for a symbol
+  ## Get the first id for each symbol as a vector
+  firstEntrezID <- c()
+  for (a in 1:numEntries){firstEntrezID[a] <- entrezMapList[[a]][1]}
+  
+  ## Get all gene symbols associated with the given entrez ID
+  cat("Finding all symbols mapped to current entrez ID", "\n")
+  symbolIdx <- which(firstEntrezID == geneEntrez)
+  numMatched <- length(symbolIdx)
+  cat("Found", numMatched, "gene symbols mapped to current entrez ID", "\n")
+  matchedSymbols <- allSymbols[symbolIdx]
+  cat("Matching gene symbols:", matchedSymbols, "\n")
+  
+  ## Query the database to determine which symbols, if any, are present
+  cat("Querying motifDB for matched gene symbols", "\n")
+  mdbHuman <- query(MotifDb, 'hsapiens')
+  foundSymbol <- c()
+  ## Test each symbol
+  for (b in 1:numMatched){
+    geneSymbol <- matchedSymbols[b]
+    geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
+    if (length(geneIdx) == 0){
+      foundSymbol[b] = FALSE
+    } else {
+      foundSymbol[b] = TRUE
+    }}
+  
+  ## Did any of the symbols return a match?
+  matchFound <- TRUE %in% foundSymbol
+  return(matchFound)}
+
+#### Clean genomic ranges, subset to standard, trim, remove mitochondrial, resort
+cleanGRanges <- function(inputGRanges){
+  
+  ## Report
+  cat("Running cleanGRanges function", "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(GenomicRanges))
+  
+  ## Keep only the standard chromosomes
+  cleanGR <- inputGRanges
+  cat("Subsetting to standard chromosomes only", "\n")
+  cleanGR <- keepStandardChromosomes(cleanGR, pruning.mode = "coarse")
+  
+  ## Trim
+  cat("Trimming", "\n")
+  cleanGR <- trim(cleanGR)
+  
+  ## Remove chrM entries
+  cat("Removing mitochondrial binding sites", "\n")
+  indexChrM <- which(seqnames(cleanGR) == "chrM")
+  if (length(indexChrM > 0)){cleanGR <- cleanGR[-indexChrM]}
+  
+  ## Resort the GRanges
+  cat("Resorting seqlevels", "\n")
+  cleanGR <- sortSeqlevels(cleanGR)
+  cleanGR <- sort(cleanGR)
+  
+  ## Return the cleaned GRanges
+  cat("Returning cleaned GRanges", "\n")
+  return(cleanGR)}
+
 
 ######################################################################################################################################
 #### Plotting Functions ##############################################################################################################
@@ -926,56 +1069,6 @@ omniGetAllBindingSites <- function(geneEntrez, pwmScanScore = "95%"){
     ## Return the binding sites
     cat("Returning binding sites", "\n")
     return(bindingSites)}}
-
-#### Check if an ENTREZ id has a match in motifDb
-checkMotifDbforEntrezID <- function(geneEntrez){
-  
-  ## Report
-  cat("Running checkMotifDbforEntrezID function", "\n")
-  cat("Input entrez ID:", geneEntrez, "\n")
-  
-  ## Load required libraries
-  suppressMessages(library(org.Hs.eg.db))
-  suppressMessages(library(MotifDb))
-  
-  ## Get ENTREZ/Symbol mappings
-  cat("Getting entrez/symbol mappings", "\n")
-  entrezMapList <- as.list(org.Hs.egALIAS2EG)
-  ## Remove entries with missing data
-  entrezMapList <- entrezMapList[!is.na(entrezMapList)]
-  ## Get the symbols
-  allSymbols <- names(entrezMapList)
-  numEntries <- length(allSymbols)
-  ## Seems like the first symbol/entrez mapping is accurate, only use first id where more than one entrez id is given for a symbol
-  ## Get the first id for each symbol as a vector
-  firstEntrezID <- c()
-  for (a in 1:numEntries){firstEntrezID[a] <- entrezMapList[[a]][1]}
-  
-  ## Get all gene symbols associated with the given entrez ID
-  cat("Finding all symbols mapped to current entrez ID", "\n")
-  symbolIdx <- which(firstEntrezID == geneEntrez)
-  numMatched <- length(symbolIdx)
-  cat("Found", numMatched, "gene symbols mapped to current entrez ID", "\n")
-  matchedSymbols <- allSymbols[symbolIdx]
-  cat("Matching gene symbols:", matchedSymbols, "\n")
-  
-  ## Query the database to determine which symbols, if any, are present
-  cat("Querying motifDB for matched gene symbols", "\n")
-  mdbHuman <- query(MotifDb, 'hsapiens')
-  foundSymbol <- c()
-  ## Test each symbol
-  for (b in 1:numMatched){
-    geneSymbol <- matchedSymbols[b]
-    geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
-    if (length(geneIdx) == 0){
-      foundSymbol[b] = FALSE
-    } else {
-      foundSymbol[b] = TRUE
-    }}
-  
-  ## Did any of the symbols return a match?
-  matchFound <- TRUE %in% foundSymbol
-  return(matchFound)}
 
 
 ######################################################################################################################################
@@ -1889,10 +1982,12 @@ correctBiasInsertionMatrix <- function(insertionMatrixData, seqbiasModelPath, re
   return(adjustedInsertions)
 }
 
+
 ######################################################################################################################################
 #### Gene Accessibility Functions ####################################################################################################
 ######################################################################################################################################
 
+####
 getGenePromoterAccessibility <- function(bamPath, entrezID = "ALL", upstream = 500, downstream = 100){
   
   ## Report
@@ -1936,3 +2031,466 @@ getGenePromoterAccessibility <- function(bamPath, entrezID = "ALL", upstream = 5
   return(readCounts)
   
 }
+
+####
+annotatePeaksToClosestGene <- function()
+  
+  
+  ######################################################################################################################################
+#### New Functions ###################################################################################################################
+######################################################################################################################################
+
+####
+plotSitesDistributionChrPerMbp <- function(inputSites, geneName){
+  
+  ## Report
+  cat("Running plotSitesDistributionChrPerMbp function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(ggplot2))
+  suppressMessages(library(GenomicRanges))
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Get chr labels
+  chrID <- makeChrLabelsAsFactor()
+  
+  ## Make sure the input binding sites are sorted and cleanup the GR
+  names <- as.character(inputSites@seqnames)
+  names(inputSites) <- names
+  hg38ref <- makeGRangeshg38()
+  circular <- hg38ref@seqinfo@is_circular
+  gen <- hg38ref@seqinfo@genome
+  inputSites@seqinfo@is_circular <- circular
+  inputSites@seqinfo@genome <- gen
+  #elementMetadata(inputSites) <- hg38ref@elementMetadata
+  inputSites <- sort(inputSites)
+  
+  ## Get the number of sites per chr
+  numSites <- inputSites@seqnames@lengths
+  
+  ## Normalize to chr length
+  chrLengths <- getChrLengthsHg38() 
+  numSitesNorm <- (numSites / chrLengths[,2]) * 1000000
+  
+  ## Convert to dataframe
+  sitesDf <- data.frame(chr = chrID, numSites = numSitesNorm)
+  
+  ## Make title
+  plotTitle <- paste0(geneName, " binding sites per Mbp")
+  
+  ## Make the plot
+  p <- ggplot(data = sitesDf, aes(x = chr, y = numSites)) +
+    geom_bar(stat = "identity", color = "blue", fill = "white", width = 1) + 
+    labs(title = plotTitle)
+  p + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+}
+
+####
+getAverageFootprintStats <- function(inputStats, minSignalPerBp, upstream = 100, downstream = 100){
+  
+  ## Report
+  cat("Running getAverageFootprintStats function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(GenomicRanges))
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Get the geneName
+  geneName = inputStats[1,2]
+  
+  ## Get the extension width
+  extWidth <- upstream + downstream
+  
+  ## Filter sites below minimum signal threshold
+  filterIdx <- which(inputStats[,9] > minSignalPerBp)
+  filterStats <- inputStats[filterIdx,]
+  
+  ## Filter out Inf and NA signals
+  idxInf1 <- which(filterStats[,16] == Inf)
+  idxInf2 <- which(filterStats[,17] == Inf)
+  idxNA1 <- which(is.nan(filterStats[,17]))
+  idxRemove <- c(idxInf1, idxInf2, idxNA1)
+  filterStats <- filterStats[-idxRemove,]
+  
+  ## Make dataframes for bound and unbound subsets
+  idxBound <- which(filterStats[,20] == 1)
+  boundStats <- filterStats[idxBound,]
+  unboundStats <- filterStats[-idxBound,]
+  
+  ## Calculate bound and unbound stats
+  avgBoundSiteFlankAccessibility <- mean(boundStats[,16])
+  avgBoundSiteFootprintDepth <- mean(boundStats[,17])
+  avgUnboundSiteFlankAccessibility <- mean(unboundStats[,16])
+  avgUnboundSiteFootprintDepth <- mean(unboundStats[,17])
+  
+  ##
+  avgMatchScorePercentile <- mean(filterStats[,7])
+  avgTotalSignal <- mean(filterStats[,8])
+  avgTotalSignalPerBp <- mean(filterStats[,9])
+  avgSiteMotifSignal <- mean(filterStats[,11])
+  avgSiteFlankSignal <- mean(filterStats[,13])
+  avgSiteBackgroundSignal <- mean(filterStats[,15])
+  avgSiteFlankAccessibility <- mean(filterStats[,16])
+  avgSiteFootprintDepth <- mean(filterStats[,17])
+  
+  ## Return the data
+  returnDf <- data.frame(geneName = geneName,
+                         flankAccessibility = avgSiteFlankAccessibility,
+                         footprintDepth = avgSiteFootprintDepth,
+                         boundFlankAccessibility = avgBoundSiteFlankAccessibility,
+                         boundFootprintDepth = avgBoundSiteFootprintDepth,
+                         unboundFlankAccessibility = avgUnboundSiteFlankAccessibility,
+                         unboundFootprintDepth = avgUnboundSiteFootprintDepth,
+                         matchScore = avgMatchScorePercentile,
+                         totalSignal = avgTotalSignal,
+                         avgTotalSignal = avgTotalSignalPerBp,
+                         motifSignal = avgSiteMotifSignal,
+                         flankSignal = avgSiteFlankSignal,
+                         backgroundSignal = avgSiteBackgroundSignal)
+  
+  return(returnDf)
+}
+
+#### Combine average footprint stats
+combineAverageFootprintStats <- function(itemNames){
+  
+  ## Report
+  cat("Running combineAverageFootprintStats function", "\n")
+  
+  ## Load required libraries
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ##
+  numItems <- length(itemNames)
+  
+  ##
+  com <- paste0("combinedFPstats <- ", itemNames[1])
+  eval(parse(text = com))
+  
+  ##
+  for (a in 2:numItems){
+    com <- paste0("currentFPstats <- ", itemNames[a])
+    eval(parse(text = com))
+    combinedFPstats <- rbind(combinedFPstats, currentFPstats)
+  }
+  
+  ## Return
+  return(combinedFPstats)
+}
+
+#### Combine average footprint stats by sample
+combineAverageFootprintStatsBySamples <- function(geneName, inputNames, inputStats){
+  
+  ## Report
+  cat("Running combineAverageFootprintStatsBySamples function", "\n")
+  
+  ## Load required libraries
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ##
+  numSamples <- length(inputNames)
+  inputNames <- data.frame(sample = inputNames)
+  
+  ##
+  com <- paste0("combinedFPstats <- ", inputStats[1])
+  eval(parse(text = com))
+  
+  ##
+  for (a in 2:numSamples){
+    com <- paste0("currentFPstats <- ", inputStats[a])
+    eval(parse(text = com))
+    combinedFPstats <- rbind(combinedFPstats, currentFPstats)
+  }
+  
+  ## Add the sample names
+  combinedFPstats <- cbind(inputNames, combinedFPstats)
+  
+  ## Return
+  return(combinedFPstats)
+}
+
+####
+plotAverageFootprintStats <- function(inputStats, title){
+  
+  ## Report
+  cat("Running plotBasicFootprintStats function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(ggplot2))
+  suppressMessages(library(ggrepel))
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Get gene names
+  geneNames <- inputStats[,1]
+  
+  ##
+  ggplot(inputStats, aes(x = flankAccessibility, y = footprintDepth)) +
+    geom_point() + 
+    xlim(0.8,1.9) +
+    ylim(0.5,1.9) +
+    labs(title=title) +
+    geom_text_repel(label = geneNames, box.padding = 0.75)
+}
+
+####
+plotAverageFootprintStatsBySamples <- function(inputStatsBySample, title, xmin = 0.8, xmax = 1.9, ymin = 0.5, ymax = 1.9){
+  
+  ## Report
+  cat("Running plotBasicFootprintStats function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(ggplot2))
+  suppressMessages(library(ggrepel))
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Get gene names
+  sampleNames <- inputStatsBySample[,1]
+  
+  ## log2
+  ggplot(inputStatsBySample, aes(x = flankAccessibility, y = footprintDepth)) +
+    geom_point() + 
+    xlim(xmin,xmax) +
+    ylim(ymin,ymax) +
+    labs(title=title) +
+    geom_text_repel(label = sampleNames, box.padding = 0.75)
+}
+
+####
+plotAverageFootprintStatsBySamplesBound <- function(inputStatsBySample, title, xmin = 0.8, xmax = 1.9, ymin = 0.5, ymax = 1.9){
+  
+  ## Report
+  cat("Running plotBasicFootprintStats function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(ggplot2))
+  suppressMessages(library(ggrepel))
+  
+  ## Options
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Get gene names
+  sampleNames <- inputStatsBySample[,1]
+  
+  ## log2
+  ggplot(inputStatsBySample, aes(x = boundFlankAccessibility, y = boundFootprintDepth)) +
+    geom_point() + 
+    xlim(xmin,xmax) +
+    ylim(ymin,ymax) +
+    labs(title=title) +
+    geom_text_repel(label = sampleNames, box.padding = 0.75)
+}
+
+#### Generate the FP null distribution from WGS data
+generateNullFPDistribution <- function(){
+  
+  ## Report
+  cat("Running generateNullFPDistribution function", "\n")
+  
+  ## Load required libraries
+  suppressMessages(library(GenomicRanges))
+  
+}
+
+####
+runCombined <- function(inputDir){
+  
+  inputFiles <- list.files(inputDir, full.names = TRUE)
+  numFiles <- length(inputFiles)
+  geneNames <- c()
+  
+  #
+  for (a in 1:numFiles){
+    load(inputFiles[a])
+    geneName <- aggregatedFootprintStats[1,2]
+    geneNames[a] <- geneName
+    com <- paste0(geneName, "avgStats <<- getAverageFootprintStats(aggregatedFootprintStats, 0.5)")
+    eval(parse(text = com))
+  }
+  
+  ## expand item names
+  itemNames <- c(paste0(geneNames, "avgStats"))
+  
+  ## combine
+  combined <- combineAverageFootprintStats(itemNames)
+  idxRemove <- which(is.nan(combined[,2]))
+  combined <- combined[-idxRemove,]
+  return(combined)
+}
+
+####
+runCombinedGene <- function(inputDir, gene, sampleName, thresh){
+  
+  inputFiles <- list.files(inputDir, full.names = TRUE)
+  numFiles <- length(inputFiles)
+  geneNames <- c()
+  
+  #
+  for (a in 1:numFiles){
+    load(inputFiles[a])
+    geneName <- aggregatedFootprintStats[1,2]
+    geneNames[a] <- geneName
+    com <- paste0(geneName, "avgStats <<- getAverageFootprintStats(aggregatedFootprintStats,", thresh, ")")
+    eval(parse(text = com))
+  }
+  
+  ## expand item names
+  itemNames <- c(paste0(geneNames, "avgStats"))
+  
+  ## combine
+  combined <- combineAverageFootprintStats(itemNames)
+  idxRemove <- which(is.nan(combined[,2]))
+  combined <- combined[-idxRemove,]
+  com <- paste0("geneStats <- ", gene, "avgStats")
+  eval(parse(text = com))
+  geneStats[1,1] <- sampleName
+  return(geneStats)
+}
+
+#### Get binding sites but with scanning function to ensure a minimum number are found
+#### Uses sample peaks for subsetting
+getAllBindingSitesWithMinimum <- function(geneSymbol, minimumSites, peaksPath){
+  
+  ## Report
+  cat("Running getAllBindingSitesWithMinimum function", "\n")
+  cat("Input gene symbol:", geneSymbol, "\n")
+  cat("Minimum number of sites to return:", minimumSites, "\n")
+  cat("Path to peaks file:", peaksPath, "\n")
+  cat("Note: if minimum number of sites threshold cannot be matched, will return sites meeting 80% PWM match", "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(MotifDb))
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(genomation))
+  genome <- Hsapiens
+  pwmScanScore <- "80%"
+  
+  ## Importing accessibility peaks
+  cat("Importing accessibility peaks file", "\n")
+  accessibilityPeaks <- importBED(peaksPath)
+  
+  #### First, try to find gene in motifDb ####
+  cat("Querying motifDB", "\n")
+  mdbHuman <- query(MotifDb, 'hsapiens')
+  geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
+  numMatchMotifDb <- length(geneIdx)
+  cat("Found", numMatchMotifDb, "records matching current gene", "\n")
+  
+  ##
+  cat("Retrieving relevant records", "\n")
+  tempMotifs <- list()
+  c <- 1
+  for (idx in geneIdx){
+    tempMotifs[c] <- mdbHuman@listData[idx]
+    c <- c+1}
+  
+  ##
+  cat("finding unique motifs", "\n")
+  uniqueMotifs <- unique(tempMotifs)
+  numUniqueMotifs <- length(uniqueMotifs)
+  cat("found", numUniqueMotifs, "unique motifs", "\n")
+  
+  ## If only one motif is found
+  if (numUniqueMotifs == 1){
+    cat("processing one unique motif", "\n")
+    PWM <- uniqueMotifs[[1]]
+    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+    allSites <- cleanGRanges(allSites)
+    
+    ## If more than one motif is found
+  } else if (numUniqueMotifs > 1){
+    cat("processing more than one unique motif", "\n")
+    cat("processing motif 1", "\n")
+    PWM <- uniqueMotifs[[1]]
+    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+    for (a in 2:numUniqueMotifs){
+      cat("processing motif", a, "\n")
+      com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
+      eval(parse(text = com))
+      sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      allSites <- c(allSites, sitesTemp)} # end else if (numUniqueMotifs > 1)
+    allSites <- cleanGRanges(allSites)} # end if (numUniqueMotifs == 1)
+  
+  ## Setup the while loop
+  numBindingSites <- 0
+  minScore <- min(allSites@elementMetadata@listData[["score"]])
+  maxScore <- max(allSites@elementMetadata@listData[["score"]])
+  currentScore <- maxScore
+  
+  while(numBindingSites <= minimumSites){
+    
+    ## Subset by score
+    idxScore <- which(allSites@elementMetadata@listData[["score"]] >= currentScore)
+    tempSites <- allSites[idxScore]
+    
+    ## Subset the cleaned sites 
+    tempSites <- subsetByOverlaps(tempSites, accessibilityPeaks)
+    numBindingSites <- length(tempSites@ranges)
+    
+    ##
+    cat("Found:", numBindingSites, "at match score:", currentScore, "\n")
+    currentScore <- (currentScore - 0.01)
+    
+    ## If you have reached a PWM score of 80%, break the while loop
+    if (currentScore <= minScore){break}
+    
+  } # end while(numBindingSites < 10000)
+  
+  ##
+  cat("Returning binding sites", "\n")
+  return(tempSites)
+}
+
+#### Scan for binding sites with motifDB
+scanBindingSitesMotifDB <- function(geneSymbol, PWM, pwmScanScore){
+  
+  ## Report
+  cat("Running scanBindingSitesMotifDB function", "\n")
+  cat("Input gene symbol:", geneSymbol, "\n")
+  cat("Minimum PWM matching score:", pwmScanScore, "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(MotifDb))
+  suppressMessages(library(GenomicRanges))
+  genome <- Hsapiens
+  
+  ## Find the binding sites
+  cat("Scanning for binding sites", "\n")
+  bindingSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+  
+  ## Add the percentile matching score
+  cat("Adding score2", "\n")
+  bindingSites@elementMetadata@listData$score2 <- bindingSites@elementMetadata@listData[["score"]] / max(bindingSites@elementMetadata@listData[["score"]])
+  
+  ## Clean the GRanges
+  cat("Cleaning GRanges", "\n")
+  bindingSites <- cleanGRanges(bindingSites)
+  
+  ## Return
+  cat("Returning binding sites", "\n")
+  return(bindingSites)}
+

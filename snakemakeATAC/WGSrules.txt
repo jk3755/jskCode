@@ -1,0 +1,405 @@
+########################################################################################################################################
+#### WGS LNCAP FORKED DIRS #############################################################################################################
+########################################################################################################################################
+# copy raw data and fork to 10 different dirs and snakemake jobs to speed up processing
+rule WGS_lncap_copy_peaks_forked:
+    input:
+        ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak")
+    output:
+        "{path}peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    shell:
+        "cp {input} {output}"
+
+rule WGS_lncap_copy_bam_forked:
+    input:
+        a=ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/aligned/SRR1554090.bam"),
+        b=ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/aligned/SRR1554090.bam.bai")
+    output:
+        a="{path}aligned/SRR1554090.bam",
+        b="{path}aligned/SRR1554090.bam.bai"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 12
+    shell:
+        """
+        cp {input.a} {output.a}
+        cp {input.b} {output.b}
+        """
+
+rule WGS_lncap_sites_forked:
+    input:
+        ancient("{path}peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.forked.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateBindingSites.R"
+
+rule WGS_lncap_ins_forked:
+    input:
+        ancient("{path}aligned/{sample}.bam"),
+        ancient("{path}aligned/{sample}.bam.bai"),
+        ancient("{path}footprints/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.forked.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.forked.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
+
+rule WGS_lncap_stats_forked:
+    input:
+        ancient("{path}footprints/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.forked.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/stats/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.stats.wgs.lncap.forked.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule WGS_lncap_fork_stats_forked:
+    input:
+        ancient(expand("{{path}}footprints/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.lncap.forked.RData", chunkNum=config["chunkFootprinting"]))
+    output:
+        "{path}footprints/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.forked.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_lncap_aggregate_stats_forked:
+    input:
+        ancient("{path}footprints/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.forked.complete"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.lncap.forked.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 2
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+
+##################################################################################################################################################
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group1:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["tempGenes"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked1.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group2:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup2"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked2.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group3:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup3"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked3.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group4:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup4"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked4.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group5:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup5"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked5.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group6:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup6"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked6.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group7:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup7"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked7.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group8:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup8"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked8.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group9:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup9"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked9.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_forked_group10:
+    input:
+        expand("{{path}}footprints/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.forked.RData", genename=config["allGenesGroup10"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.forked10.complete"
+    shell:
+        "touch {output}"
+
+#####################################################################################################################################################
+rule wgs_lncap_fork1:
+    input:
+        "data/wgsfork/fork1/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked1.complete"
+
+rule wgs_lncap_fork2:
+    input:
+        "data/wgsfork/fork2/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked2.complete"
+
+rule wgs_lncap_fork3:
+    input:
+        "data/wgsfork/fork3/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked3.complete"
+
+rule wgs_lncap_fork4:
+    input:
+        "data/wgsfork/fork4/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked4.complete"
+
+rule wgs_lncap_fork5:
+    input:
+        "data/wgsfork/fork5/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked5.complete"
+
+rule wgs_lncap_fork6:
+    input:
+        "data/wgsfork/fork6/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked6.complete"
+
+rule wgs_lncap_fork7:
+    input:
+        "data/wgsfork/fork7/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked7.complete"
+
+rule wgs_lncap_fork8:
+    input:
+        "data/wgsfork/fork8/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked8.complete"
+
+rule wgs_lncap_fork9:
+    input:
+        "data/wgsfork/fork9/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked9.complete"
+
+rule wgs_lncap_fork10:
+    input:
+        "data/wgsfork/fork10/operations/aggregators/SRR1554090.footprinting.pwm95.wgs.lncap.forked10.complete"
+
+########################################################################################################################################
+#### WGS RULES #########################################################################################################################
+########################################################################################################################################
+
+# rule WGS_make_bigwig:
+#     input:
+#         a="{path}aligned/{sample}.bam",
+#         b="{path}aligned/{sample}.bam.bai"
+#     output:
+#         "{path}bigwig/{sample}.bw"
+#     conda:
+#         "resources/envs/deeptools.yaml"
+#     threads:
+#         10
+#     resources:
+#         mem_mb=lambda params, attempt: attempt * 50000,
+#         run_time=lambda params, attempt: attempt * 24
+#     shell:
+#         "bamCoverage -b {input.a} -o {output} -of bigwig -bs 1 -p {threads} -v"
+
+## LNCAP ###############################################################################################################
+rule WGS_generate_binding_sites_sm_lncap:
+    input:
+        ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"),
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 4
+    script:
+        "resources/scripts/footprinting/generateBindingSites.R"
+
+rule WGS_generate_insertion_matrix_sm_lncap:
+    input:
+        ancient("{path}aligned/{sample}.bam"),
+        ancient("{path}aligned/{sample}.bam.bai"),
+        ancient("{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"),
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
+
+rule WGS_generate_footprint_stats_sm_lncap:
+    input:
+        ancient("{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"),
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.stats.wgs.lncap.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule WGS_fork_footprint_stats_lncap:
+    input:
+        ancient(expand("{{path}}footprints/lncap/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.lncap.RData", chunkNum=config["chunkFootprinting"]))
+    output:
+        "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_aggregate_footprint_stats_sm_lncap:
+    input:
+        "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/lncap/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.lncap.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+##
+rule WGS_AGGREGATOR_footprinting_lncap:
+    input:
+        expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["WGSlncap"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_AGGREGATOR_footprinting_lncap_grouped_serial:
+    input:
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup1"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup2"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup3"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup4"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup5"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup6"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup7"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup8"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup9"])),
+        ancient(expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["allGenesGroup10"]))
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.grouped.serial.complete"
+    shell:
+        "touch {output}"
+
+## COSMA ###############################################################################################################
+rule WGS_generate_binding_sites_sm_cosma:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/cosma/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.cosma.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateBindingSites.R"
+
+rule WGS_generate_insertion_matrix_sm_cosma:
+    input:
+        "{path}aligned/{sample}.bam",
+        "{path}aligned/{sample}.bam.bai",
+        "{path}footprints/cosma/sites/{sample}.{ID}.pwm{matchScore}.bind.wgs.cosma.RData",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/cosma/insertions/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.ins.wgs.cosma.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
+
+rule WGS_generate_footprint_stats_sm_cosma:
+    input:
+        "{path}footprints/cosma/insertions/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.ins.wgs.cosma.RData",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.stats.wgs.cosma.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule WGS_fork_footprint_stats_cosma:
+    input:
+        ancient(expand("{{path}}footprints/cosma/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.cosma.RData", chunkNum=config["chunkFootprinting"]))
+    output:
+        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete"
+    shell:
+        "touch {output}"
+
+rule WGS_aggregate_footprint_stats_sm_cosma:
+    input:
+        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete",
+        "resources/functions/atacFunctions.R"
+    output:
+        "{path}footprints/cosma/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.cosma.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+
+rule WGS_AGGREGATOR_footprinting_cosma:
+    input:
+        expand("{{path}}footprints/cosma/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.cosma.RData", genename=config["WGScosma"])
+    output:
+        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.cosma.complete"
+    shell:
+        "touch {output}"

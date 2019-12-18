@@ -1,28 +1,18 @@
 ########################################################################################################################################
-#### IMPORT MODULES AND CONFIG #########################################################################################################
+#### IMPORT CONFIGURATION FILE #########################################################################################################
 ########################################################################################################################################
 configfile: "resources/config/config.yaml"
-include: "resources/modules/spoolPreprocessing.snakefile"
-include: "resources/modules/spoolFootprinting.snakefile"
-include: "resources/modules/spoolFullAnalysis.snakefile"
-include: "resources/modules/spoolFootprintingGrouped.snakefile"
+
 
 ########################################################################################################################################
-#### UNLOCK TARGET #####################################################################################################################
+#### IMPORT SPOOLING MODULES ###########################################################################################################
 ########################################################################################################################################
+include: "resources/modules/spoolLNCAP.snakefile"
 
-## Just a dummy rule for quickly unlocking the working directory
-## Is this really the only way to do this?
-rule UNLOCK:
-    output:
-        "unlock.txt"
-    shell:
-        "touch {output}"
 
 ########################################################################################################################################
 #### FULL ANALYSIS #####################################################################################################################
 ########################################################################################################################################
-
 ## This rule determines what is run in the full analysis spooling option
 ## Also cleans up the intermediate preprocessing data
 rule AGGREGATOR_full_analysis:
@@ -40,7 +30,11 @@ rule AGGREGATOR_full_analysis:
 ########################################################################################################################################
 #### DIRECTORY STRUCTURE ###############################################################################################################
 ########################################################################################################################################
+## Generate the required directories, some software may fail when trying to create files if directory doesnt exist
+## Important to have separated directory structure to avoid dirs with too many files and confusing snakemake metadata
+## Avoid repeating words in the full paths to intermediate files
 
+# Directory generation aggregator rule
 rule AGGREGATOR_build_directory_structure:
     input:
         "{path}operations/directories/main_dir.built",
@@ -54,6 +48,7 @@ rule AGGREGATOR_build_directory_structure:
     shell:
         "touch {output}"
 
+# The parent directory
 rule DIR_main:
     output:
         "{path}operations/directories/main_dir.built"
@@ -71,7 +66,7 @@ rule DIR_main:
         touch {output}
         """
 
-## Important to have separated dir structure here
+# Flag files for marking when a step is complete in the pipeline
 rule DIR_operations:
     output:
         "{path}operations/directories/operations_dir.built"
@@ -82,7 +77,7 @@ rule DIR_operations:
         touch {output}
         """
 
-## Avoid repeating words in the full paths to intermediate files
+# Directories for preprocessing data
 rule DIR_preprocessing:
     output:
         "{path}operations/directories/preprocessing_dir.built"
@@ -108,6 +103,7 @@ rule DIR_preprocessing:
         touch {output}
         """
 
+# For QC metrics files
 rule DIR_metrics:
     output:
         "{path}operations/directories/metrics_dir.built"
@@ -125,6 +121,7 @@ rule DIR_metrics:
         touch {output}
         """
 
+# For peak calling
 rule DIR_peaks:
     output:
         "{path}operations/directories/peaks_dir.built"
@@ -134,6 +131,7 @@ rule DIR_peaks:
         touch {output}
         """
 
+# For footprinting
 rule DIR_footprints:
     output:
         "{path}operations/directories/footprints_dir.built"
@@ -392,17 +390,19 @@ rule STEP13_build_bai_index:
 ## Make a bigwig file from the bam file
 rule STEP14_make_bigwig:
     input:
-        a="{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam",
-        b="{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai"
+        a=ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam"),
+        b=ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai")
     output:
         "{path}bigwig/{sample}.rep{repnum}.ref{refgenome}.bw"
     conda:
         "resources/envs/deeptools.yaml"
+    benchmark:
+        "{path}benchmark/bigwig/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.bigwig.txt"
     threads:
         10
     resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 12
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 24
     shell:
         "bamCoverage -b {input.a} -o {output} -of bigwig -bs 1 -p {threads} -v"
 
@@ -606,7 +606,6 @@ rule METRICS_generate_peak_annotations:
 ########################################################################################################################################
 #### FOOTPRINTING ######################################################################################################################
 ########################################################################################################################################
-
 rule FOOTPRINTING_generate_binding_sites_sm:
     input:
         ancient("{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak"),
@@ -615,8 +614,10 @@ rule FOOTPRINTING_generate_binding_sites_sm:
         "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.bind.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.sites.txt"
     resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
+        mem_mb=lambda params, attempt: attempt * 5000,
         run_time=lambda params, attempt: attempt * 1
     script:
         "resources/scripts/footprinting/generateBindingSites.R"
@@ -631,8 +632,10 @@ rule FOOTPRINTING_generate_insertion_matrix_sm:
         "{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.ins.txt"
     resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
+        mem_mb=lambda params, attempt: attempt * 5000,
         run_time=lambda params, attempt: attempt * 1
     script:
         "resources/scripts/footprinting/generateInsertionMatrix.R"
@@ -645,8 +648,10 @@ rule FOOTPRINTING_generate_footprint_stats_sm:
         "{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.stats.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.txt"
     resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
+        mem_mb=lambda params, attempt: attempt * 5000,
         run_time=lambda params, attempt: attempt * 1
     script:
         "resources/scripts/footprinting/generateFootprintStats.R"
@@ -667,17 +672,104 @@ rule FOOTPRINTING_aggregate_footprint_stats_sm:
         "{path}footprints/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.sm.RData"
     conda:
         "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.aggregated.txt"
     resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 2
     script:
         "resources/scripts/footprinting/aggregateFootprintStats.R"
 
 rule AGGREGATOR_footprinting:
     input:
-        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenes"]))
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["geneNames"]))
     output:
         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm"
+    shell:
+        "touch {output}"
+
+########################################################################################################################################
+#### FOOTPRINTING WITH MINIMUM #########################################################################################################
+########################################################################################################################################
+rule FOOTPRINTING_generate_binding_sites_minimum_sm:
+    input:
+        ancient("{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.bind.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.sites.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateBindingSitesWithMinimum.R"
+
+rule FOOTPRINTING_generate_insertion_matrix_minimum_sm:
+    input:
+        ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam"),
+        ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai"),
+        ancient("{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.bind.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.ins.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.ins.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
+
+rule FOOTPRINTING_generate_footprint_stats_minimum_sm:
+    input:
+        ancient("{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.ins.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.stats.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 5000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule FOOTPRINTING_fork_footprint_stats_minimum_sm:
+    input:
+        ancient(expand("{{path}}footprints/sm/stats/{{gene}}/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{{gene}}.minimum{{minsites}}.chunk{chunkNum}of{{totalchunk}}.stats.RData", chunkNum=config["chunkFootprinting"]))
+    output:
+        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.stats.complete"
+    shell:
+        "touch {output}"
+
+rule FOOTPRINTING_aggregate_footprint_stats_minimum_sm:
+    input:
+        ancient("{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.stats.complete"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.sm.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.aggregated.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 2
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+
+rule AGGREGATOR_footprinting_minimum:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.minimum{{minsites}}.chunks{totalchunk}.sm.RData", genename=config["geneNames"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.minimum{minsites}.chunks{totalchunk}.uncorrected.sm"
     shell:
         "touch {output}"
 
@@ -686,7 +778,7 @@ rule AGGREGATOR_footprinting:
 ########################################################################################################################################
 rule AGGREGATOR_footprinting_group1:
     input:
-        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup1"]))
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["tempGenes"]))
     output:
         "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group1"
     shell:
@@ -859,15 +951,15 @@ rule SEQBIAS_write_sample_peaks_to_BED:
 
 rule MERGE_sample_peaks_lncap:
     input:
-        "data/pros/lncap/cr01/peaks/gn/LNCaP-CR-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/cr02/peaks/gn/LNCaP-CR-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/cr04/peaks/gn/LNCaP-CR-04.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/cr05/peaks/gn/LNCaP-CR-05.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/cr07/peaks/gn/LNCaP-CR-07.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/cr08/peaks/gn/LNCaP-CR-08.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/wt01/peaks/gn/LNCaP-WT-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "data/pros/lncap/wt02/peaks/gn/LNCaP-WT-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R"
+        ancient("data/pros/lncap/cr01/peaks/gn/LNCaP-CR-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr02/peaks/gn/LNCaP-CR-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr04/peaks/gn/LNCaP-CR-04.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr05/peaks/gn/LNCaP-CR-05.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr07/peaks/gn/LNCaP-CR-07.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr08/peaks/gn/LNCaP-CR-08.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/wt01/peaks/gn/LNCaP-WT-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/wt02/peaks/gn/LNCaP-WT-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
     output:
         "data/pros/lncap/cr01/peaks/sm/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak",
         "data/pros/lncap/cr02/peaks/sm/LNCaP-CR-02.rep1.refhg38_sample_merged_peaks.narrowPeak",
@@ -902,174 +994,3 @@ rule MERGE_sample_peaks_cosma:
         "resources/envs/mergeSamplePeaks.yaml"
     script:
         "resources/scripts/preprocessing/mergeSamplePeaks.R"
-
-
-########################################################################################################################################
-#### WGS RULES #########################################################################################################################
-########################################################################################################################################
-
-rule WGS_make_bigwig:
-    input:
-        a="{path}aligned/{sample}.bam",
-        b="{path}aligned/{sample}.bam.bai"
-    output:
-        "{path}bigwig/{sample}.bw"
-    conda:
-        "resources/envs/deeptools.yaml"
-    threads:
-        10
-    resources:
-        mem_mb=lambda params, attempt: attempt * 50000,
-        run_time=lambda params, attempt: attempt * 24
-    shell:
-        "bamCoverage -b {input.a} -o {output} -of bigwig -bs 1 -p {threads} -v"
-
-## LNCAP ###############################################################################################################
-rule WGS_generate_binding_sites_sm_lncap:
-    input:
-        ancient("/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak"),
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/generateBindingSites.R"
-
-rule WGS_generate_insertion_matrix_sm_lncap:
-    input:
-        ancient("{path}aligned/{sample}.bam"),
-        ancient("{path}aligned/{sample}.bam.bai"),
-        ancient("{path}footprints/lncap/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.lncap.RData"),
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrix.R"
-
-rule WGS_generate_footprint_stats_sm_lncap:
-    input:
-        ancient("{path}footprints/lncap/insertions/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.ins.wgs.lncap.RData"),
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/lncap/stats/{gene}/{sample}.{gene}.pwm{matchScore}.{chunk}.stats.wgs.lncap.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateFootprintStats.R"
-
-rule WGS_fork_footprint_stats_lncap:
-    input:
-        ancient(expand("{{path}}footprints/lncap/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.lncap.RData", chunkNum=config["chunkFootprinting"]))
-    output:
-        "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete"
-    shell:
-        "touch {output}"
-
-rule WGS_aggregate_footprint_stats_sm_lncap:
-    input:
-        "{path}footprints/lncap/stats/{sample}.{gene}.pwm{matchScore}.wgs.lncap.complete",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/lncap/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.lncap.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/aggregateFootprintStats.R"
-
-rule WGS_AGGREGATOR_footprinting_lncap:
-    input:
-        expand("{{path}}footprints/lncap/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.lncap.RData", genename=config["WGSlncap"])
-    output:
-        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.lncap.complete"
-    shell:
-        "touch {output}"
-
-## COSMA ###############################################################################################################
-rule WGS_generate_binding_sites_sm_cosma:
-    input:
-        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/wgs/peaks/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/cosma/sites/{sample}.{gene}.pwm{matchScore}.bind.wgs.cosma.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/generateBindingSites.R"
-
-rule WGS_generate_insertion_matrix_sm_cosma:
-    input:
-        "{path}aligned/{sample}.bam",
-        "{path}aligned/{sample}.bam.bai",
-        "{path}footprints/cosma/sites/{sample}.{ID}.pwm{matchScore}.bind.wgs.cosma.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/cosma/insertions/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.ins.wgs.cosma.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateInsertionMatrix.R"
-
-rule WGS_generate_footprint_stats_sm_cosma:
-    input:
-        "{path}footprints/cosma/insertions/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.ins.wgs.cosma.RData",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/cosma/stats/{ID}/{sample}.{ID}.pwm{matchScore}.{chunk}.stats.wgs.cosma.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 20000,
-        run_time=lambda params, attempt: attempt * 6
-    script:
-        "resources/scripts/footprinting/generateFootprintStats.R"
-
-rule WGS_fork_footprint_stats_cosma:
-    input:
-        ancient(expand("{{path}}footprints/cosma/stats/{{gene}}/{{sample}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.wgs.cosma.RData", chunkNum=config["chunkFootprinting"]))
-    output:
-        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete"
-    shell:
-        "touch {output}"
-
-rule WGS_aggregate_footprint_stats_sm_cosma:
-    input:
-        "{path}footprints/cosma/stats/{sample}.{gene}.pwm{matchScore}.wgs.cosma.complete",
-        "resources/functions/atacFunctions.R"
-    output:
-        "{path}footprints/cosma/aggregated/{sample}.{gene}.pwm{matchScore}.wgs.cosma.RData"
-    conda:
-        "resources/envs/footprintAnalysis.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 10000,
-        run_time=lambda params, attempt: attempt * 1
-    script:
-        "resources/scripts/footprinting/aggregateFootprintStats.R"
-
-rule WGS_AGGREGATOR_footprinting_cosma:
-    input:
-        expand("{{path}}footprints/cosma/aggregated/{{sample}}.{genename}.pwm{{matchScore}}.wgs.cosma.RData", genename=config["WGScosma"])
-    output:
-        "{path}operations/aggregators/{sample}.footprinting.pwm{matchScore}.wgs.cosma.complete"
-    shell:
-        "touch {output}"

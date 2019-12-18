@@ -27,21 +27,6 @@ tryCatch({
   cat("Filepath for loading binding sites:", bindingSitesPath, "\n")
   cat("Filepath for output data:", dataOutPath, "\n")
   
-  #### Load libraries ####
-  cat("Loading libraries", "\n")
-  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
-  suppressMessages(library(Biostrings))
-  suppressMessages(library(MotifDb))
-  suppressMessages(library(GenomicRanges))
-  suppressMessages(library(Rsamtools))
-  suppressMessages(library(GenomicAlignments))
-  suppressMessages(library(ChIPseeker))
-  suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
-  suppressMessages(library(genomation))
-  suppressMessages(library(stringr))
-  genome <- Hsapiens
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
-  
   #### Source functions ####
   cat("Loading functions from path:", functionSourcePath, "\n")
   source(functionSourcePath)
