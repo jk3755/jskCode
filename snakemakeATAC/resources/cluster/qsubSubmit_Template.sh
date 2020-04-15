@@ -1,5 +1,5 @@
 #!/bin/bash
-#$ -N lncap_wt02
+#$ -N [lncap_wt02]
 #$ -j y
 #$ -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac
 #$ -pe smp 2
