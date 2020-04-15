@@ -34,7 +34,7 @@ snakemake \
 --local-cores $LOCALCORES \
 $TARGETRULE \
 --cluster-config $CLUSTCONFIG \
---cluster "qsub -terse -j y -o /ifs/scratch/c2b2/ac_lab/jk3755/atac/ciccia_test.txt -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
+--cluster "qsub -terse -j y -pe smp {cluster.nCPUs} -l mem={cluster.memory}M,time={cluster.runtime}:0:0 -wd /ifs/scratch/c2b2/ac_lab/jk3755/atac -V" \
 --use-conda \
 --conda-prefix $CONDADIR \
 --restart-times $JOBRESTARTS \

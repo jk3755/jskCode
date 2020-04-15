@@ -1,0 +1,16 @@
+{
+
+    "__default__" :
+    {
+        "nCPUs"     : "10",
+        "memory"    : 20000,
+        "name"      : "JOBNAME.{rule}.{wildcards}",
+        "runtime"   : "6"
+    },
+
+    "fastq_dump_sra" :
+    {
+        "nCPUs"     : "{threads}"
+    }
+
+}

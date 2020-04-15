@@ -19,7 +19,7 @@ tryCatch({
   cat("Sample rep:", sampleRep, "\n")
   cat("Gene name:", geneName, "\n")
   cat("Reference genome used:", refGenome, "\n")
-  cat("PWM matching score:", pwmScanScore, "\n")
+  cat("Minimum number of sites:", minimumSites, "\n")
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Output filepath for binding sites:", bindingSitesOutPath, "\n")
   
@@ -29,13 +29,13 @@ tryCatch({
   
   #### Retrieve the binding sites for the current gene ####
   cat("Retrieving binding sites", "\n")
-  tempAllSites <- getAllBindingSitesWithMinimum(geneName, minimumSites, peakPath)
-  numSites <- length(tempAllSites@ranges)
+  bindingSites <- getAllBindingSitesWithMinimum(geneName, minimumSites, peakPath)
+  numSites <- length(bindingSites@ranges)
   cat("Identified", numSites, "total binding sites", "\n")
   
   #### Save the footprint data ####
   cat("Saving binding sites data", "\n")
-  save(tempAllSites, file = bindingSitesOutPath)
+  save(bindingSites, file = bindingSitesOutPath)
 
 }, finally = {
 }) # end tryCatch

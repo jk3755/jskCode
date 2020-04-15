@@ -1,0 +1,18 @@
+{
+
+    "__default__" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : 10000,
+        "name"      : "JOBNAME.{rule}.{wildcards}",
+        "runtime"   : "1"
+    },
+
+    "make_bigwig" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }
+    
+}

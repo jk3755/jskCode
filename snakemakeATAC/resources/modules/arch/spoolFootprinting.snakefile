@@ -80,44 +80,7 @@ rule corrected_test:
         "data/lncap/cr08/operations/aggregators/LNCaP-CR-08.rep1.refhg38.footprinting.pwm95.corrected.sm"
 
 
-############################################################################################################
-############################################################################################################
-rule footprinting_cosma_pwm95:
-    input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
-        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
-        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
-        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
-        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.pwm95.uncorrected.sm",
-        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
 
-rule footprinting_cosma_test:
-    input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DAbaz2b_pwm95:
-    input:
-        "data/cosma/DAbaz2b/operations/aggregators/DonorA_Baz2B.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DAluf_pwm95:
-    input:
-        "data/cosma/DAluf/operations/aggregators/DonorA_Luf.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DAprog_pwm95:
-    input:
-        "data/cosma/DAprog/operations/aggregators/DonorA_Progenitor.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DBbaz2b_pwm95:
-    input:
-        "data/cosma/DBbaz2b/operations/aggregators/DonorB_Baz2B.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DBluf_pwm95:
-    input:
-        "data/cosma/DBluf/operations/aggregators/DonorB_Luf.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
-
-rule footprinting_DBprog_pwm95:
-    input:
-        "data/cosma/DBprog/operations/aggregators/DonorB_Progenitor.rep1.refhg38.footprinting.pwm95.uncorrected.sm"
 
 
 ############################################################################################################

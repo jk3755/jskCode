@@ -11,10 +11,62 @@ chunkFootprinting:
   - 9
   - 10
 
+chunkFootprinting20:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+
+# CICCIA SPECIFIC GENE SET
+ap1Genes:
+  - AP1
+
+# CICCIA SPECIFIC GENE SET
+nfyGenes:
+  - NFYA
+  - NFYB
+  - NFYC
+
+# CICCIA SPECIFIC GENE SET
+CICCIA:
+  - IRF1
+  - IRF2
+  - IRF3
+  - IRF4
+  - IRF5
+  - IRF6
+  - IRF7
+  - IRF8
+  - IRF9
+  - STAT1
+  - STAT2
+  - STAT3
+  - STAT4
+  - STAT5A
+  - STAT5B
+  - STAT6
+  - MYC
+  
 # Genes for alessandro that are in MDB
 TEST:
-  - FOXM1
-  - E2F1
+  - H2AFZ
+  - MEF2A
 
 # All genes that are present in motifDb
 allGenes:
@@ -1725,12 +1777,12 @@ geneNames:
   - AR
 
 # Testing JASPAR
-jasparTEST:
+testCOSMA:
   - MA0002-2
   - MA0029-1
 
 # JASPAR motifs karthik cosma
-geneNamesREMOVE:
+geneNamesCOSMA:
   - MA0002-2
   - MA0029-1
   - MA0038-1

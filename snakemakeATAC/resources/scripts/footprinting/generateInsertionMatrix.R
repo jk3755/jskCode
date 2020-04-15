@@ -12,7 +12,8 @@ tryCatch({
   sampleRep <- snakemake@wildcards[["repnum"]]
   geneName <- snakemake@wildcards[["gene"]]
   refGenome <- snakemake@wildcards[["refgenome"]]
-  currentChunk <- snakemake@wildcards[["chunk"]]
+  currentChunk <- as.numeric(snakemake@wildcards[["chunk"]])
+  totalChunk <- as.numeric(snakemake@wildcards[["totalchunk"]])
   
   #### Report ####
   cat("Generating insertion matrix with the following parameters:", "\n")
@@ -23,6 +24,7 @@ tryCatch({
   cat("Gene name:", geneName, "\n")
   cat("Reference genome used:", refGenome, "\n")
   cat("Current chunk:", currentChunk, "\n")
+  cat("Total chunk:", totalChunk, "\n")
   cat("Filepath for loading functions:", functionSourcePath, "\n")
   cat("Filepath for loading binding sites:", bindingSitesPath, "\n")
   cat("Filepath for output data:", dataOutPath, "\n")
@@ -38,6 +40,7 @@ tryCatch({
   
   #### No binding sites
   if (numSites == 0){
+    
     cat("No binding sites identified, creating dummy file", "\n")
     insertionMatrixData <- "DUMMY"
     save(insertionMatrixData, file = dataOutPath)
@@ -46,9 +49,9 @@ tryCatch({
     
     #### Subset binding sites to current chunk ####
     cat("Subsetting binding sites", "\n")
-    currentSites <- splitGRangesToBin(bindingSites, 40, currentChunk)
+    currentSites <- splitGRangesToBin(bindingSites, totalChunk, currentChunk)
     
-    if (is.null(currentSites)){
+    if (is.null(currentSites) | length(currentSites) == 0){
       cat("No binding sites in current chunk, outputting dummy file", "\n")
       insertionMatrixData <- "DUMMY"
       save(insertionMatrixData, file = dataOutPath)

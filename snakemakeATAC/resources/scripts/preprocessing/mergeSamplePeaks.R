@@ -4,6 +4,7 @@
 ## OR PEAKS STARTING AT COORDS ENDING IN 000 etc
 ## WILL BE CONVERTED TO EXPONENETS AND WILL CAUSE ERRORS
 options(scipen = 999)
+options(stringsAsFactors = FALSE)
 
 #### Determine the number of input files ####
 lastInput <- length(snakemake@input)

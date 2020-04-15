@@ -7,46 +7,581 @@ options(scipen = 999)
 options(stringsAsFactors = FALSE)
 
 ######################################################################################################################################
+#### Specific Functions ##############################################################################################################
+######################################################################################################################################
+
+#### Remove PhiX Reads from a set of paired fastq files ####
+pairedRemovePhiX <- function(inputFilePaths, outputFilePaths){
+  
+  ##
+  cat("Running pairedRemovePhiX function", "\n")
+  
+  ## Library
+  cat("Loading libraries", "\n")
+  #BiocManager::install("dada2")
+  suppressMessages(library(dada2))
+  
+  ##
+  cat("Read 1 input:", inputFilePaths[1], "\n")
+  cat("Read 2 input:", inputFilePaths[2], "\n")
+  cat("Read 1 output:", outputFilePaths[1], "\n")
+  cat("Read 2 output:", outputFilePaths[2], "\n")
+  
+  ## Remove the phiX and save the output files
+  cat("Removing PhiX reads and saving output files", "\n")
+  fastqClean <- fastqPairedFilter(inputFilePaths, outputFilePaths, rm.phix = TRUE)
+  
+} # end pairedRemovePhiX
+
+## For converting the jaspar ids back to gene symbols
+cosmaConvertJasparIDtoSymbol <- function(jasparID){
+  
+  ##
+  jIDs <- c(
+    "MA0461-1",
+    "MA0591-1",
+    "MA0466-1",
+    "MA0139-1",
+    "MA0019-1",
+    "MA0154-2",
+    "MA0598-1",
+    "MA0473-1",
+    "MA0474-1",
+    "MA0141-2",
+    "MA0156-1",
+    "MA0477-1",
+    "MA0482-1",
+    "MA0038-1",
+    "MA0043-1",
+    "MA0114-2",
+    "MA0485-1",
+    "MA0050-2",
+    "MA0051-1",
+    "MA0488-1",
+    "MA0029-1",
+    "MA0498-1",
+    "MA0100-2",
+    "MA0499-1",
+    "MA0060-2",
+    "MA0048-1",
+    "MA0017-1",
+    "MA0160-1",
+    "MA0150-2",
+    "MA0494-1",
+    "MA0014-2",
+    "MA0508-1",
+    "MA0069-1",
+    "MA0101-1",
+    "MA0071-1",
+    "MA0002-2",
+    "MA0517-1",
+    "MA0144-2",
+    "MA0080-3",
+    "MA0518-1",
+    "MA0140-2",
+    "MA0091-1",
+    "MA0119-1",
+    "MA0522-1",
+    "MA0009-1",
+    "MA0103-2")
+  
+  ##
+  nameIDs <- c(
+    "Atoh1",
+    "Bach1-Mafk",
+    "CEBPB",
+    "CTCF",
+    "Ddit3-Cebpa",
+    "EBF1",
+    "EHF",
+    "ELF1",
+    "Erg",
+    "Esrrb",
+    "FEV",
+    "FOSL1",
+    "Gata4",
+    "Gfi1",
+    "HLF",
+    "HNF4A",
+    "Hoxc9",
+    "IRF1",
+    "IRF2",
+    "JUN",
+    "Mecom",
+    "Meis1",
+    "Myb",
+    "Myod1",
+    "NFYA",
+    "NHLH1",
+    "NR2F1",
+    "NR4A2",
+    "Nfe2l2",
+    "Nr1h3-Rxra",
+    "PAX5",
+    "PRDM1",
+    "Pax6",
+    "REL",
+    "RORA_1",
+    "RUNX1",
+    "STAT2-STAT1",
+    "STAT3",
+    "Spi1",
+    "Stat4",
+    "TAL1-GATA1",
+    "TAL1-TCF3",
+    "TLX1-NFIC",
+    "Tcf3",
+    "T",
+    "ZEB1")
+  
+  ##
+  idData <- data.frame(SYMBOL = nameIDs, ID = jIDs)
+  
+  ##
+  idx <- which(idData$ID == jasparID)
+  geneSymbol <- idData$SYMBOL[idx]
+  
+  ## return
+  return(geneSymbol)
+  
+} # end cosmaConvertJasparIDtoSymbol
+
+####
+convertBED10colTo3col <- function(inputBED, outputPath){
+  
+  inBED <- importBED(inputBED)
+  
+  chrVec <- as.character(inBED@seqnames)
+  startVec <- inBED@ranges@start
+  widthVec <- inBED@ranges@width
+  endVec <- startVec + widthVec
+  
+  outBED <- data.frame(chr = chrVec, start = startVec, end = endVec)
+  outBED <- makeGRangesFromDataFrame(outBED)
+  
+  writeGRangesToBED(outBED, outputPath)
+}
+
+####
+getTotalReadsFromBam <- function(inputBam){
+  
+  ## Load required libraries
+  suppressMessages(library(Rsamtools))
+
+  ## Count total reads in library and calculate average signal per bp
+  totalReads <- countBam(inputBam)
+  totalReads <- as.numeric(totalReads[6])
+
+  ## Return
+  return(totalReads)
+  
+} # end getTotalReadsFromBam
+
+#### Calculate the total number of reads based on a peak file
+getTotalReadsInPeaks <- function(inputBam, peaksPath){
+  
+  ## Load required libraries
+  suppressMessages(library(Rsamtools))
+  
+  ## Import the peaks
+  accessibilityPeaks <- importMACS2narrowPeak(peaksPath)
+  accessibilityPeaks <- cleanGRanges(accessibilityPeaks)
+  
+  ##
+  param = ScanBamParam(which = accessibilityPeaks)
+  totalReadsInPeaks <- countBam(inputBam, param = param)
+  totalReadsInPeaks <- as.numeric(sum(totalReadsInPeaks[,6]))
+  
+  ##
+  return(totalReadsInPeaks)
+  
+} # end getTotalReadsInPeaks
+
+#### Calculate total reads in a bam file in a range provided by Granges object
+getTotalReadsInGRanges <- function(inputBam, inputGR){
+  
+  ## Load required libraries
+  suppressMessages(library(Rsamtools))
+
+  ##
+  param = ScanBamParam(which = inputGR)
+  
+  ##
+  totalReadsInRange <- countBam(inputBam, param = param)
+  
+  ##
+  totalReadsInRange <- as.numeric(sum(totalReadsInRange[,6]))
+  
+  ##
+  return(totalReadsInRange)
+  
+} # end getTotalReadsInGRanges
+
+#### Create a GRanges object with a range containing full gene body of all genes
+# Start position is the TSS
+getAllGeneBodiesHG38 <- function(){
+  
+  library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  g = genes(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  gr <-cleanGRangesBasic(g)
+  return(gr)
+}
+
+#### Create a GRanges object with a range containing full gene body of all genes
+# Start position is the TSS
+getAllGenePromoterWindowsHG38 <- function(upstream = 1000, downstream = 500){
+  
+  library(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  gr = genes(TxDb.Hsapiens.UCSC.hg38.knownGene)
+  gr <-cleanGRangesBasic(gr)
+  gr <- promoters(gr, upstream = upstream, downstream = downstream)
+  
+  return(gr)
+}
+
+#### Split a GRanges to promoter (=<1000 from TSS) to distal (>1000 to TSS) peaks
+splitGRangesToPromoterAndDistal <- function(inputGR, distanceThreshold = 1000){
+  
+  ## Report
+  cat("Running splitGRangesToPromoterAndDistal function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(genomation))
+  suppressMessages(library(GenomicRanges))
+  
+  ## Get the TSS of all transcripts with distance threshold
+  geneTSS <- getGeneTSSwindow(upstream = distanceThreshold, downstream = distanceThreshold)
+  
+  ## Get number of items in each 
+  numPeak <- length(inputGR)
+  numTSS <- length(geneTSS)
+  
+  ## Add an index metadata column to keep track of the peaks
+  midx <- c(1:numPeak)
+  
+  #### Clear the metadata. GR throws an NSBS error otherwise ####
+  mscore <- mcols(inputGR)$score
+  mname <- mcols(inputGR)$name
+  msummitfc <- mcols(inputGR)$summitfc
+  msummitneglog10pvalue <- mcols(inputGR)$summitneglog10pvalue
+  msummitneglog10qvalue <- mcols(inputGR)$summitneglog10qvalue
+  msummitposition <- mcols(inputGR)$summitposition
+  
+  ##
+  df <- data.frame(idx = midx,
+                   score = mscore,
+                   name = mname,
+                   summitfc = msummitfc,
+                   summitneglog10pvalue = msummitneglog10pvalue,
+                   summitneglog10qvalue = msummitneglog10qvalue,
+                   summitposition = msummitposition)
+  
+  ## Clear metadata
+  mcols(inputGR) <- NULL
+  ## Restore metadata
+  mcols(inputGR, use.names = FALSE) <- df
+  
+  ## Cleanup metadata for geneTSS
+  mcols(geneTSS) <- NULL
+  midx2 <- c(1:numTSS)
+  mname2 <- c(rep("geneTSS", times = numTSS))
+  ##
+  df2 <- data.frame(idx = midx2,
+                   name = mname2)
+  ##
+  mcols(geneTSS, use.names = FALSE) <- df2
+  
+  #### Determine which peaks overlap the TSS region ####
+  overlapTSS <- subsetByOverlaps(inputGR, geneTSS)
+  idxPromoter <- overlapTSS@elementMetadata@listData[["idx"]]
+  
+  ## Subset the inputGR into the two groups
+  promoterPeaks <- inputGR[idxPromoter]
+  distalPeaks <- inputGR[-idxPromoter]
+
+  ## Convert to list
+  peaksList <- list()
+  peaksList$promoterPeaks <- promoterPeaks
+  peaksList$distalPeaks <- distalPeaks
+  
+  ## Return
+  return(peaksList)
+  
+} # end splitGRangesToPromoterAndDistal
+
+#### Split a GRanges to promoter (=<1000 from TSS) to distal (>1000 to TSS) peaks BASIC
+splitGRangesToPromoterAndDistalBasic <- function(inputGR, distanceThreshold = 1000){
+  
+  ## Report
+  cat("Running splitGRangesToPromoterAndDistal function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(genomation))
+  suppressMessages(library(GenomicRanges))
+  
+  ## Get the TSS of all transcripts with distance threshold
+  geneTSS <- getGeneTSSwindow(upstream = distanceThreshold, downstream = distanceThreshold)
+  
+  ## Get number of items in each 
+  numPeak <- length(inputGR)
+  numTSS <- length(geneTSS)
+  
+  ## Add an index metadata column to keep track of the peaks
+  midx <- c(1:numPeak)
+  
+  ##
+  df <- data.frame(idx = midx)
+  
+  ## Clear metadata
+  mcols(inputGR) <- NULL
+  ## Restore metadata
+  mcols(inputGR, use.names = FALSE) <- df
+  
+  ## Cleanup metadata for geneTSS
+  mcols(geneTSS) <- NULL
+  midx2 <- c(1:numTSS)
+  mname2 <- c(rep("geneTSS", times = numTSS))
+  
+  ##
+  df2 <- data.frame(idx = midx2,
+                    name = mname2)
+  ##
+  mcols(geneTSS, use.names = FALSE) <- df2
+  
+  #### Determine which peaks overlap the TSS region ####
+  overlapTSS <- subsetByOverlaps(inputGR, geneTSS)
+  idxPromoter <- overlapTSS@elementMetadata@listData[["idx"]]
+  
+  ## Subset the inputGR into the two groups
+  promoterPeaks <- inputGR[idxPromoter]
+  distalPeaks <- inputGR[-idxPromoter]
+  
+  ## Convert to list
+  peaksList <- list()
+  peaksList$promoterPeaks <- promoterPeaks
+  peaksList$distalPeaks <- distalPeaks
+  
+  ## Return
+  return(peaksList)
+  
+} # end splitGRangesToPromoterAndDistal
+
+####
+removeOutlierWidths <- function(inputWidths){
+  outlierWidths <- boxplot(inputWidths, plot = FALSE)$out
+  outlierIdx <- which(inputWidths %in% outlierWidths)
+  inputWidths <- inputWidths[-outlierIdx]
+  return(inputWidths)}
+
+
+#### Remove peaks from input 1 that overlap peaks in input 2
+removeOverlapsGR <- function(inputGR1, inputGR2){
+  
+  ## Report
+  cat("Running removeOverlapsGR function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(genomation))
+  suppressMessages(library(GenomicRanges))
+  
+  ## Get number of items in each 
+  numRanges1 <- length(inputGR1)
+  numRanges2 <- length(inputGR2)
+  
+  ## Add an index metadata column to keep track of the ranges
+  midx1 <- c(1:numRanges1)
+  midx2 <- c(1:numRanges2)
+  mcols(inputGR1)$idx <- midx1
+  mcols(inputGR2)$idx <- midx2
+  
+  ## Determine which peaks from input 2 overlap input 1
+  overlapPeaks <- subsetByOverlaps(inputGR1, inputGR2)
+  
+  ## Retrieve indices of overlapping peaks
+  idxOverlap <- overlapPeaks@elementMetadata@listData[["idx"]]
+  
+  ## Remove the overlaps from input 1
+  returnRanges <- inputGR1[-idxOverlap]
+  
+  ## Return
+  return(returnRanges)
+  
+} # end removeOverlapsGR
+
+#### Remove duplicate GRanges
+removeDuplicateGR <- function(inputGR){
+  
+  ## Report
+  cat("Running removeDuplicateGR function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(dplyr))
+  
+  ## Get number of items in each 
+  numRanges <- length(inputGR)
+  
+  ## Add an index metadata column to keep track of the ranges
+  midx <- c(1:numRanges)
+  mcols(inputGR)$idx <- midx
+  
+  #### Convert to a data frame ####
+  tempIDX <- mcols(inputGR)$idx
+  tempChr <- as.character(seqnames(inputGR))
+  tempStart <- start(inputGR)
+  tempWidth <- width(inputGR)
+  tempDF <- data.frame(ID = tempIDX,
+                       chr = tempChr,
+                       start = tempStart,
+                       width = tempWidth)
+  
+  #### Use dplyr package to remove duplicated rows ####
+  # will keep only the first entry if a duplicate, must exclude the ID column
+  tempDF <- tempDF %>% distinct(chr, start, width, .keep_all = TRUE)
+
+  #### Subset the GRs to non duplicates ####
+  uniqueRangeIdx <- tempDF[,1]
+  returnGR <- inputGR[uniqueRangeIdx]
+  
+  ## Return
+  return(returnGR)
+  
+} # end removeDuplicateGR
+
+######################################################################################################################################
 #### Common Functions ################################################################################################################
 ######################################################################################################################################
 
 #### Import a BED file as a GRanges object ####
 importBED <- function(bedPath){
+  
+  ## Report
+  cat("Running importBED function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
   suppressMessages(library(genomation))
-  bedin <- readBed(bedPath, track.line = FALSE, remove.unusual = FALSE, zero.based = TRUE)
-  bedin <- keepStandardChromosomes(bedin, pruning.mode = "coarse")
-  bedin <- trim(bedin)
-  return(bedin)}
+  
+  ## 
+  cat("Importing BED data from path:", bedPath, "\n")
+  bedin <- readBed(bedPath, track.line = "AUTO", remove.unusual = TRUE, zero.based = TRUE)
+  
+  ## 
+  cat("Cleaning GRanges object", "\n")
+  bedin <- cleanGRanges(bedin)
+  
+  ## 
+  cat("Returning data", "\n")
+  return(bedin)
+  
+} # end importBED
+
+#### Import a BED narrowPeak file output from MACS2 ####
+importMACS2narrowPeak <- function(bedPath){
+  
+  ## Report
+  cat("Running importMACS2narrowPeak function", "\n")
+  options(scipen = 999)
+  options(stringsAsFactors = FALSE)
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(genomation))
+  
+  ## 
+  cat("Importing BED data from path:", bedPath, "\n")
+  bedin <- readBed(bedPath, track.line = "AUTO", remove.unusual = TRUE, zero.based = TRUE)
+  
+  ## 
+  cat("Cleaning GRanges object", "\n")
+  bedin <- cleanGRanges(bedin)
+  
+  #### Need to modify the metadata column names ####
+  mscore <- mcols(bedin)$score
+  mname <- mcols(bedin)$name
+  msummitfc <- mcols(bedin)$thickStart
+  msummitneglog10pvalue <- mcols(bedin)$thickEnd
+  msummitneglog10qvalue <- mcols(bedin)$itemRgb
+  msummitposition <- mcols(bedin)$blockCount
+  ##
+  df <- data.frame(score = mscore,
+                   name = mname,
+                   summitfc = msummitfc,
+                   summitneglog10pvalue = msummitneglog10pvalue,
+                   summitneglog10qvalue = msummitneglog10qvalue,
+                   summitposition = msummitposition)
+  
+  ##
+  mcols(bedin) <- NULL
+  
+  ##
+  mcols(bedin, use.names = FALSE) <- df
+  
+  ##
+  cat("Returning data", "\n")
+  return(bedin)
+  
+} # end importMACS2narrowPeak
 
 #### Merge two or more GRanges objects ####
 getGRangesUnion <- function(grList = list()){
+  
+  ## Report
+  cat("Running getGRangesUnion function", "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(genomation))
+  suppressMessages(library(GenomicRanges))
+  
+  ##
   numItems <- length(grList)
   cat("Processing the union of", numItems, "GRanges objects", "\n")
+  
   ## Unlist the GRanges
   for (a in 1:numItems){
     com <- paste0("tempGR", a, " <- grList[[", a, "]]")
     eval(parse(text = com))}
+  
   ## Merge the first two
   cat("Merging first two GRanges", "\n")
   unionGR <- union(tempGR1, tempGR2)
+  
   ## Merge the rest
   cat("Merging remaining GRanges", "\n")
   if (numItems > 2){
     for (b in 3:numItems){
       com <- paste0("unionGR <- GenomicRanges::union(unionGR, tempGR", b, ")")
       eval(parse(text = com))}}
+  
   ## Return
-  return(unionGR)}
+  return(unionGR)
+  
+} # end getGRangesUnion
 
 #### Write a GRanges object to a 3-column BED file ####
 writeGRangesToBED <- function(inputGR, filePath){
   
-  ## BED files are 0-coordinate based, so subtract start by 1
+  ## BED files are 0-coordinate based, so subtract start and end by 1
   cat("Converting GRanges object to BED format", "\n")
   dataframeGR <- data.frame(
     chrom = seqnames(inputGR),
     chromStart = start(inputGR)-1,
-    chromEnd = end(inputGR)
+    chromEnd = end(inputGR)-1
   )
   ## Write the output file
   cat("Writing BED output file at path:", filePath, "\n")
@@ -56,7 +591,61 @@ writeGRangesToBED <- function(inputGR, filePath){
     quote = F,
     sep = "\t",
     row.names = F,
-    col.names = F)}
+    col.names = F)
+}
+
+#### Write a GRanges object to a 3-column BED file ####
+writeGRangesToBEDwithScore <- function(inputGR, filePath){
+  
+  ## BED files are 0-coordinate based, so subtract start by 1
+  cat("Converting GRanges object to BED format", "\n")
+  dataframeGR <- data.frame(
+    chr = seqnames(inputGR),
+    start = start(inputGR)-1,
+    end = end(inputGR),
+    score = inputGR@elementMetadata@listData[["score"]],
+    
+    )
+  
+  ## Write the output file
+  cat("Writing BED output file at path:", filePath, "\n")
+  write.table(
+    dataframeGR,
+    file = filePath,
+    quote = F,
+    sep = "\t",
+    row.names = F,
+    col.names = F)
+}
+
+#### Write a GRanges object to a 3-column BED file ####
+writeGRangesToBEDwithAll <- function(inputGR, filePath){
+  
+  ## BED files are 0-coordinate based, so subtract start by 1
+  cat("Converting GRanges object to BED format", "\n")
+  dataframeGR <- data.frame(
+    chr = seqnames(inputGR),
+    start = start(inputGR)-1,
+    end = end(inputGR),
+    score = inputGR@elementMetadata@listData[["score"]],
+    name = inputGR@elementMetadata@listData[["idx"]],
+    thickStart = inputGR@elementMetadata@listData[["thickStart"]],
+    thickEnd = inputGR@elementMetadata@listData[["thickEnd"]],
+    itemRgb = inputGR@elementMetadata@listData[["itemRgb"]],
+    blockCount = inputGR@elementMetadata@listData[["blockCount"]]
+    )
+
+  ## Write the output file
+  cat("Writing BED output file at path:", filePath, "\n")
+  write.table(
+    dataframeGR,
+    file = filePath,
+    quote = F,
+    sep = "\t",
+    row.names = F,
+    col.names = F)
+  
+} # end writeGRangesToBEDwithAll
 
 #### Write a GRanges object to a 3-column BED file ####
 writeGRangesToBEDwithStrand <- function(inputGR, filePath){
@@ -228,19 +817,23 @@ convertEntrezToSymbol <- function(entrezID){
 getGeneTSSwindow <- function(entrezID = "ALL", upstream = 1000, downstream = 500){
   
   ## Report
-  cat("Running getGeneLocus function", "\n")
+  cat("Running getGeneTSSwindow function", "\n")
   cat("Processing entrez IDs", entrezID, "\n")
   
   ## Load required libraries
-  suppressMessages(library(Homo.sapiens))
   suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
   
   ## Get gene info and subset to standard only
-  TSSinfo <- promoters(txdb, upstream = 1000, downstream = 500)
-  TSSinfo <- keepStandardChromosomes(TSSinfo, pruning.mode = "coarse")
-  TSSinfo <- trim(TSSinfo)
-}
+  TSSinfo <- promoters(txdb, upstream = upstream, downstream = downstream)
+  
+  ## Clean
+  TSSinfo <- cleanGRangesBasic(TSSinfo)
+  
+  ## Return
+  return(TSSinfo)
+
+} # end getGeneTSSwindow
 
 #### Retrieve genomic positions of genes *UNFINISHED*
 getPromoterWindow <- function(entrezID = "ALL", upstream= 500, downstream = 100){
@@ -260,7 +853,8 @@ getPromoterWindow <- function(entrezID = "ALL", upstream= 500, downstream = 100)
   geneInfo <- promoters(geneInfo, upstream = upstream, downstream = downstream)
   
   ## Return
-  return(geneInfo)}
+  return(geneInfo)
+} # end getPromoterWindow
 
 #### Split GRanges into even bins ####
 splitGRangesToBin <- function(inputGR, numBins, returnBin){
@@ -287,14 +881,14 @@ splitGRangesToBin <- function(inputGR, numBins, returnBin){
   binIdx <- as.numeric(binIdx)
   
   ## Add metadata indices
-  score <- bindingSites@elementMetadata@listData$score
-  score2 <- bindingSites@elementMetadata@listData$score2
+  score <- inputGR@elementMetadata@listData$score
+  score2 <- inputGR@elementMetadata@listData$score2
   idx <- grVec
   df <- data.frame(score = score, score2 = score2, idx = idx)
-  mcols(bindingSites, use.names = FALSE) <- df
+  mcols(inputGR, use.names = FALSE) <- df
   
   ## Subset the GR and return
-  subGR <- bindingSites[(elementMetadata(bindingSites)[, "idx"] %in% binIdx)]
+  subGR <- inputGR[(elementMetadata(inputGR)[, "idx"] %in% binIdx)]
   return(subGR)
   
 } # end splitGRangesToBin
@@ -439,16 +1033,59 @@ cleanGRanges <- function(inputGRanges){
   cleanGR <- inputGRanges
   cat("Subsetting to standard chromosomes only", "\n")
   cleanGR <- keepStandardChromosomes(cleanGR, pruning.mode = "coarse")
-  
   ## Trim
   cat("Trimming", "\n")
   cleanGR <- trim(cleanGR)
-  
   ## Remove chrM entries
   cat("Removing mitochondrial binding sites", "\n")
   indexChrM <- which(seqnames(cleanGR) == "chrM")
   if (length(indexChrM > 0)){cleanGR <- cleanGR[-indexChrM]}
+  ## Drop the ChrM seqlev
+  cleanGR <- dropSeqlevels(cleanGR, "chrM")
+
+  ## Resort the GRanges
+  cat("Resorting seqlevels", "\n")
+  cleanGR <- sortSeqlevels(cleanGR)
+  cleanGR <- sort(cleanGR)
   
+  ## Restore score2 and idx to granges
+  score <- cleanGR@elementMetadata@listData[["score"]]
+  maxScore <- max(score)
+  score2 <- score / maxScore
+  numSites <- length(cleanGR)
+  idxVec <- c(1:numSites)
+  cleanGR@elementMetadata@listData$score2 <- score2
+  cleanGR@elementMetadata@listData$idx <- idxVec
+  
+  ## Return the cleaned GRanges
+  cat("Returning cleaned GRanges", "\n")
+  return(cleanGR)
+  
+} # end cleanGRanges
+
+#### Basic clean GR
+cleanGRangesBasic <- function(inputGRanges){
+  
+  ## Report
+  cat("Running cleanGRangesBasic function", "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(GenomicRanges))
+  
+  ## Keep only the standard chromosomes
+  cleanGR <- inputGRanges
+  cat("Subsetting to standard chromosomes only", "\n")
+  cleanGR <- keepStandardChromosomes(cleanGR, pruning.mode = "coarse")
+  ## Trim
+  ## Remove chrM entries
+  #cat("Removing mitochondrial binding sites", "\n")
+  #indexChrM <- which(seqnames(cleanGR) == "chrM")
+  #if (length(indexChrM > 0)){cleanGR <- cleanGR[-indexChrM]}
+  ## Drop the ChrM seqlev
+  cleanGR <- dropSeqlevels(cleanGR, "chrM", pruning.mode = "coarse")
+  cat("Trimming", "\n")
+  cleanGR <- trim(cleanGR)
   ## Resort the GRanges
   cat("Resorting seqlevels", "\n")
   cleanGR <- sortSeqlevels(cleanGR)
@@ -456,7 +1093,9 @@ cleanGRanges <- function(inputGRanges){
   
   ## Return the cleaned GRanges
   cat("Returning cleaned GRanges", "\n")
-  return(cleanGR)}
+  return(cleanGR)
+  
+} # end cleanGRanges
 
 
 ######################################################################################################################################
@@ -1070,6 +1709,212 @@ omniGetAllBindingSites <- function(geneEntrez, pwmScanScore = "95%"){
     cat("Returning binding sites", "\n")
     return(bindingSites)}}
 
+#### Get binding sites but with scanning function to ensure a minimum number are found
+#### Uses sample peaks for subsetting
+getAllBindingSitesWithMinimum <- function(geneSymbol, minimumSites, peaksPath){
+  
+  ## Report
+  cat("Running getAllBindingSitesWithMinimum function", "\n")
+  cat("Input gene symbol:", geneSymbol, "\n")
+  cat("Minimum number of sites to return:", minimumSites, "\n")
+  cat("Path to peaks file:", peaksPath, "\n")
+  cat("Note: if minimum number of sites threshold cannot be matched, will return sites meeting 80% PWM match", "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(MotifDb))
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(genomation))
+  genome <- Hsapiens
+  pwmScanScore <- "80%"
+  
+  ## Importing accessibility peaks
+  cat("Importing accessibility peaks file", "\n")
+  accessibilityPeaks <- importBED(peaksPath)
+  
+  #### First, try to find gene in motifDb ####
+  cat("Querying motifDB", "\n")
+  mdbHuman <- query(MotifDb, 'hsapiens')
+  geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
+  numMatchMotifDb <- length(geneIdx)
+  cat("Found", numMatchMotifDb, "records matching current gene", "\n")
+  
+  #### A match is found in motifDB ####
+  if(numMatchMotifDb > 0){
+    cat("Retrieving relevant records", "\n")
+    tempMotifs <- list()
+    c <- 1
+    for (idx in geneIdx){
+      tempMotifs[c] <- mdbHuman@listData[idx]
+      c <- c+1}
+    ##
+    cat("finding unique motifs", "\n")
+    uniqueMotifs <- unique(tempMotifs)
+    numUniqueMotifs <- length(uniqueMotifs)
+    cat("found", numUniqueMotifs, "unique motifs", "\n")
+    ## If only one motif is found
+    if (numUniqueMotifs == 1){
+      cat("processing one unique motif", "\n")
+      PWM <- uniqueMotifs[[1]]
+      allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      allSites <- cleanGRanges(allSites)
+      ## If more than one motif is found
+    } else if (numUniqueMotifs > 1){
+      cat("processing more than one unique motif", "\n")
+      cat("processing motif 1", "\n")
+      PWM <- uniqueMotifs[[1]]
+      allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+      for (a in 2:numUniqueMotifs){
+        cat("processing motif", a, "\n")
+        com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
+        eval(parse(text = com))
+        sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+        allSites <- c(allSites, sitesTemp)} # end else if (numUniqueMotifs > 1)
+      ##
+      allSites <- cleanGRanges(allSites)} # end if (numUniqueMotifs == 1)
+    
+    ## Setup the while loop
+    numBindingSites <- 0
+    minScore <- min(allSites@elementMetadata@listData[["score"]])
+    maxScore <- max(allSites@elementMetadata@listData[["score"]])
+    currentScore <- maxScore
+    scoreRange <- maxScore - minScore
+    scoreInterval <- scoreRange / 1000
+    
+    ##
+    while(numBindingSites <= minimumSites){
+      ## Subset by score
+      idxScore <- which(allSites@elementMetadata@listData[["score"]] >= currentScore)
+      tempSites <- allSites[idxScore]
+      ## Subset the cleaned sites 
+      tempSites <- subsetByOverlaps(tempSites, accessibilityPeaks)
+      numBindingSites <- length(tempSites@ranges)
+      ##
+      cat("Found:", numBindingSites, "at match score:", currentScore, "\n")
+      currentScore <- (currentScore - scoreInterval)
+      ## If you have reached a PWM score of 80%, break the while loop
+      if (currentScore <= minScore){break}
+    } # end while(numBindingSites < 10000)
+  } # end numMatchMotifDb > 0
+  
+  #### No matches found in motifDB, try local database ####
+  if(numMatchMotifDb == 0){
+    
+    ##
+    allSites <- scanBindingSitesLocal(geneSymbol, pwmScanScore)
+    allSites <- cleanGRanges(allSites)
+    
+    ## Setup the while loop
+    numBindingSites <- 0
+    minScore <- min(allSites@elementMetadata@listData[["score"]])
+    maxScore <- max(allSites@elementMetadata@listData[["score"]])
+    currentScore <- maxScore
+    currentScore <- maxScore
+    scoreRange <- maxScore - minScore
+    scoreInterval <- scoreRange / 1000
+    
+    ##
+    while(numBindingSites <= minimumSites){
+      ## Subset by score
+      idxScore <- which(allSites@elementMetadata@listData[["score"]] >= currentScore)
+      tempSites <- allSites[idxScore]
+      ## Subset the cleaned sites 
+      tempSites <- subsetByOverlaps(tempSites, accessibilityPeaks)
+      numBindingSites <- length(tempSites@ranges)
+      ##
+      cat("Found:", numBindingSites, "at match score:", currentScore, "\n")
+      currentScore <- (currentScore - scoreInterval)
+      ## If you have reached a PWM score of 80%, break the while loop
+      if (currentScore <= minScore){break}
+    } # end while(numBindingSites < 10000)
+  } # end numMatchMotifDb == 0
+  
+  ##
+  cat("Returning binding sites", "\n")
+  return(tempSites)
+  
+} # end getAllBindingSitesWithMinimum
+
+#### Scan for binding sites with motifDB
+scanBindingSitesMotifDB <- function(geneSymbol, PWM, pwmScanScore){
+  
+  ## Report
+  cat("Running scanBindingSitesMotifDB function", "\n")
+  cat("Input gene symbol:", geneSymbol, "\n")
+  cat("Minimum PWM matching score:", pwmScanScore, "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(MotifDb))
+  suppressMessages(library(GenomicRanges))
+  genome <- Hsapiens
+  
+  ## Find the binding sites
+  cat("Scanning for binding sites", "\n")
+  bindingSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+  
+  ## Add the percentile matching score
+  cat("Adding score2", "\n")
+  bindingSites@elementMetadata@listData$score2 <- bindingSites@elementMetadata@listData[["score"]] / max(bindingSites@elementMetadata@listData[["score"]])
+  
+  ## Clean the GRanges
+  cat("Cleaning GRanges", "\n")
+  bindingSites <- cleanGRanges(bindingSites)
+  
+  ## Return
+  cat("Returning binding sites", "\n")
+  return(bindingSites)
+  
+} # end scanBindingSitesMotifDB
+
+#### Scan for binding sites with motifDB
+scanBindingSitesLocal <- function(geneSymbol, pwmScanScore){
+  
+  ## Report
+  cat("Running scanBindingSitesLocal function", "\n")
+  cat("Input gene symbol:", geneSymbol, "\n")
+  cat("Minimum PWM matching score:", pwmScanScore, "\n")
+  
+  ## Load required libraries
+  cat("Loading libraries", "\n")
+  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
+  suppressMessages(library(Biostrings))
+  suppressMessages(library(GenomicRanges))
+  suppressMessages(library(TFBSTools))
+  genome <- Hsapiens
+  
+  ##
+  workDir <- getwd()
+  jasparPath <- paste0(workDir, "/resources/pwm/", geneSymbol, ".jaspar")
+  
+  ##
+  if (file.exists(jasparPath)){
+    
+    ##
+    cat("File found at path", jasparPath, "\n")
+    cat("Importing JASPAR matrix", "\n")
+    matrix <- readJASPARMatrix(jasparPath, matrixClass = "PWM")
+    PWM <- matrix@listData[[1]]@profileMatrix
+    
+    ## Find the binding sites
+    cat("Scanning for binding sites", "\n")
+    bindingSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
+    
+    ## Clean the GRanges
+    cat("Cleaning GRanges", "\n")
+    bindingSites <- cleanGRanges(bindingSites)
+    
+    ##
+    cat("Returning binding sites", "\n")
+    return(bindingSites)
+    
+  } # end filecheck
+} # end scanBindingSitesLocal
+
 
 ######################################################################################################################################
 #### Insertion Matrix Functions ######################################################################################################
@@ -1496,6 +2341,7 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
       
       ## Ttest must be in a try catch block
       ## If data are constant, will throw an error
+      #### P VALUE GENERATED HERE ####
       tryCatch({
         ttest <- t.test(motifSignals, mu = averageNullMotifSignal, alternative = "less", conf.level = 0.95)
         pvalue <- ttest$p.value
@@ -1594,7 +2440,9 @@ generateFootprintStats <- function(insMatrix, bindingSites, sampleName, geneName
   
   ##
   cat("Returning dataframe", "\n")
-  return(footprintStats)}
+  return(footprintStats)
+  
+} # end generateFootprintStats
 
 #### Analyze footprinting statistics given an insertion matrix with seqbias correction ####
 generateFootprintStatsSeqbiasCorrected <- function(insMatrix, bindingSites, sampleName, upstream = 100, downstream = 100, annotationWidth = 1000, seqbiasPath, fastaPath){
@@ -2036,7 +2884,7 @@ getGenePromoterAccessibility <- function(bamPath, entrezID = "ALL", upstream = 5
 annotatePeaksToClosestGene <- function()
   
   
-  ######################################################################################################################################
+######################################################################################################################################
 #### New Functions ###################################################################################################################
 ######################################################################################################################################
 
@@ -2364,133 +3212,4 @@ runCombinedGene <- function(inputDir, gene, sampleName, thresh){
   geneStats[1,1] <- sampleName
   return(geneStats)
 }
-
-#### Get binding sites but with scanning function to ensure a minimum number are found
-#### Uses sample peaks for subsetting
-getAllBindingSitesWithMinimum <- function(geneSymbol, minimumSites, peaksPath){
-  
-  ## Report
-  cat("Running getAllBindingSitesWithMinimum function", "\n")
-  cat("Input gene symbol:", geneSymbol, "\n")
-  cat("Minimum number of sites to return:", minimumSites, "\n")
-  cat("Path to peaks file:", peaksPath, "\n")
-  cat("Note: if minimum number of sites threshold cannot be matched, will return sites meeting 80% PWM match", "\n")
-  
-  ## Load required libraries
-  cat("Loading libraries", "\n")
-  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
-  suppressMessages(library(Biostrings))
-  suppressMessages(library(MotifDb))
-  suppressMessages(library(GenomicRanges))
-  suppressMessages(library(genomation))
-  genome <- Hsapiens
-  pwmScanScore <- "80%"
-  
-  ## Importing accessibility peaks
-  cat("Importing accessibility peaks file", "\n")
-  accessibilityPeaks <- importBED(peaksPath)
-  
-  #### First, try to find gene in motifDb ####
-  cat("Querying motifDB", "\n")
-  mdbHuman <- query(MotifDb, 'hsapiens')
-  geneIdx <- which(mdbHuman@elementMetadata@listData[["geneSymbol"]] == geneSymbol)
-  numMatchMotifDb <- length(geneIdx)
-  cat("Found", numMatchMotifDb, "records matching current gene", "\n")
-  
-  ##
-  cat("Retrieving relevant records", "\n")
-  tempMotifs <- list()
-  c <- 1
-  for (idx in geneIdx){
-    tempMotifs[c] <- mdbHuman@listData[idx]
-    c <- c+1}
-  
-  ##
-  cat("finding unique motifs", "\n")
-  uniqueMotifs <- unique(tempMotifs)
-  numUniqueMotifs <- length(uniqueMotifs)
-  cat("found", numUniqueMotifs, "unique motifs", "\n")
-  
-  ## If only one motif is found
-  if (numUniqueMotifs == 1){
-    cat("processing one unique motif", "\n")
-    PWM <- uniqueMotifs[[1]]
-    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-    allSites <- cleanGRanges(allSites)
-    
-    ## If more than one motif is found
-  } else if (numUniqueMotifs > 1){
-    cat("processing more than one unique motif", "\n")
-    cat("processing motif 1", "\n")
-    PWM <- uniqueMotifs[[1]]
-    allSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-    for (a in 2:numUniqueMotifs){
-      cat("processing motif", a, "\n")
-      com <- paste0("PWM <- uniqueMotifs[[", a, "]]")
-      eval(parse(text = com))
-      sitesTemp <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-      allSites <- c(allSites, sitesTemp)} # end else if (numUniqueMotifs > 1)
-    allSites <- cleanGRanges(allSites)} # end if (numUniqueMotifs == 1)
-  
-  ## Setup the while loop
-  numBindingSites <- 0
-  minScore <- min(allSites@elementMetadata@listData[["score"]])
-  maxScore <- max(allSites@elementMetadata@listData[["score"]])
-  currentScore <- maxScore
-  
-  while(numBindingSites <= minimumSites){
-    
-    ## Subset by score
-    idxScore <- which(allSites@elementMetadata@listData[["score"]] >= currentScore)
-    tempSites <- allSites[idxScore]
-    
-    ## Subset the cleaned sites 
-    tempSites <- subsetByOverlaps(tempSites, accessibilityPeaks)
-    numBindingSites <- length(tempSites@ranges)
-    
-    ##
-    cat("Found:", numBindingSites, "at match score:", currentScore, "\n")
-    currentScore <- (currentScore - 0.01)
-    
-    ## If you have reached a PWM score of 80%, break the while loop
-    if (currentScore <= minScore){break}
-    
-  } # end while(numBindingSites < 10000)
-  
-  ##
-  cat("Returning binding sites", "\n")
-  return(tempSites)
-}
-
-#### Scan for binding sites with motifDB
-scanBindingSitesMotifDB <- function(geneSymbol, PWM, pwmScanScore){
-  
-  ## Report
-  cat("Running scanBindingSitesMotifDB function", "\n")
-  cat("Input gene symbol:", geneSymbol, "\n")
-  cat("Minimum PWM matching score:", pwmScanScore, "\n")
-  
-  ## Load required libraries
-  cat("Loading libraries", "\n")
-  suppressMessages(library(BSgenome.Hsapiens.UCSC.hg38))
-  suppressMessages(library(Biostrings))
-  suppressMessages(library(MotifDb))
-  suppressMessages(library(GenomicRanges))
-  genome <- Hsapiens
-  
-  ## Find the binding sites
-  cat("Scanning for binding sites", "\n")
-  bindingSites <- Biostrings::matchPWM(PWM, genome, min.score = pwmScanScore, with.score = TRUE)
-  
-  ## Add the percentile matching score
-  cat("Adding score2", "\n")
-  bindingSites@elementMetadata@listData$score2 <- bindingSites@elementMetadata@listData[["score"]] / max(bindingSites@elementMetadata@listData[["score"]])
-  
-  ## Clean the GRanges
-  cat("Cleaning GRanges", "\n")
-  bindingSites <- cleanGRanges(bindingSites)
-  
-  ## Return
-  cat("Returning binding sites", "\n")
-  return(bindingSites)}
 

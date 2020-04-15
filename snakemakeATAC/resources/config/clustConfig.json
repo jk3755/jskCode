@@ -183,5 +183,19 @@
     {
         "memory"    : "{resources.mem_mb}",
         "runtime"   : "{resources.run_time}"
-    }
+    },
+
+    "CPM_NORMALIZE_BAM" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "TCGA_MACS2_PEAK_CALLING_p001" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }  
 }
