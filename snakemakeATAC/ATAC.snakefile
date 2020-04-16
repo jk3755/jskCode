@@ -18,8 +18,7 @@ rule STEP1_build_directory_structure:
         mkdir -p -v {wildcards.path}preprocessing
         mkdir -p -v {wildcards.path}metrics
         mkdir -p -v {wildcards.path}peaks
-        mkdir -p -v {wildcards.path}bam
-        mkdir -p -v {wildcards.path}bigwig
+        mkdir -p -v {wildcards.path}aligned
         ####
         mkdir -p -v {wildcards.path}preprocessing/1
         mkdir -p -v {wildcards.path}preprocessing/2
@@ -34,10 +33,6 @@ rule STEP1_build_directory_structure:
         mkdir -p -v {wildcards.path}preprocessing/b
         mkdir -p -v {wildcards.path}preprocessing/c
         mkdir -p -v {wildcards.path}preprocessing/d
-        mkdir -p -v {wildcards.path}preprocessing/e
-        mkdir -p -v {wildcards.path}preprocessing/f
-        mkdir -p -v {wildcards.path}preprocessing/g
-        mkdir -p -v {wildcards.path}preprocessing/h
         ####
         touch {output}
         """
@@ -92,10 +87,7 @@ rule STEP5_coordinate_sort_sam:
     conda:
         "resources/envs/samtools.yaml"
     shell:
-        """
-        rm -rf {wildcards.path}preprocessing/3/{wildcards.sample}_L{wildcards.lane}*
-        samtools sort {input} -o {output} -O sam
-        """
+        "samtools sort {input} -o {output} -O sam"
 
 rule STEP6_blacklist_filter_and_bam_conversion:
     input:
@@ -236,33 +228,21 @@ rule STEP14_build_bam_index:
         I={input} \
         O={output}"
 
-rule STEP15_MACS2_call_peaks_global_normalization_p01:
+rule MACS2_call_peaks:
     input:
         a="{path}aligned/{sample}.bam",
         b="{path}aligned/{sample}.bam.bai"
     output:
-        "{path}peaks/{sample}_globalnorm_p01_peaks.narrowPeak"
+        "{path}peaks/{sample}_peaks.narrowPeak"
     conda:
         "resources/envs/macs2.yaml"
     shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample}_globalnorm_p01 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.01"
+        "macs2 callpeak -t {input.a} -n {wildcards.sample} --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.05"
 
-rule STEP16_MACS2_call_peaks_local_normalization_p01:
-    input:
-        a="{path}aligned/{sample}.bam",
-        b="{path}aligned/{sample}.bam.bai"
-    output:
-        "{path}peaks/{sample}_localnorm_p01_peaks.narrowPeak"
-    conda:
-        "resources/envs/macs2.yaml"
-    shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample}_localnorm_p01 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --keep-dup all -p 0.05"
-
-rule AGGREGATOR_preprocessing:
+rule AGGREGATE_preprocessing:
     input:
         "{path}aligned/{sample}.bam.bai",
-        "{path}peaks/{sample}_globalnorm_p01_peaks.narrowPeak",
-        "{path}peaks/{sample}_localnorm_p01_peaks.narrowPeak"
+        "{path}peaks/{sample}_peaks.narrowPeak"
     output:
         "{path}operations/{sample}.preprocessing_complete"
     shell:
