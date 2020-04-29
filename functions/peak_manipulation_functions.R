@@ -32,7 +32,7 @@ mergeAndAverageReplicatedPeaks <- function(peaks1, peaks2, minOverlap, extendPea
   for(a in 1:numOverlaps){
     
     ##
-    if(verbose){cat("Processing peak set", a, "\n")}
+    if(verbose){cat("Processing peak set", a, "of", numOverlaps, "total overlaps \n")}
     
     ## Idx
     idx1 <- idxOverlap1[a]

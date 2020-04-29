@@ -205,13 +205,16 @@ cleanGRanges <- function(ranges, rm.chrM = TRUE, rm.chrY = TRUE, rm.chrX = FALSE
 importNarrowpeakAsGRangesStandardized <- function(filepath, width = 500, remove_overlaps = TRUE){
   
   ## Load libraries
+  cat("Loading libraries \n")
   suppressMessages(library(chromVAR))
   suppressMessages(library(GenomicRanges))
   
   ## Import the peaks using chromVar function
+  cat("Reading narrowPeak files \n")
   peaks <- readNarrowpeaks(filepath, width = width, non_overlapping = remove_overlaps)
   
   ## Clean
+  cat("Cleaning GenomicRanges peak object \n")
   peaks <- cleanGRanges(peaks)
   
   ## Return

@@ -228,21 +228,45 @@ rule STEP14_build_bam_index:
         I={input} \
         O={output}"
 
-rule MACS2_call_peaks:
+rule MACS2_call_peaks_p01:
     input:
         a="{path}aligned/{sample}.bam",
         b="{path}aligned/{sample}.bam.bai"
     output:
-        "{path}peaks/{sample}_peaks.narrowPeak"
+        "{path}peaks/{sample}_p01_peaks.narrowPeak"
     conda:
         "resources/envs/macs2.yaml"
     shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample} --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.05"
+        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p01 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.01"
+
+rule MACS2_call_peaks_p001:
+    input:
+        a="{path}aligned/{sample}.bam",
+        b="{path}aligned/{sample}.bam.bai"
+    output:
+        "{path}peaks/{sample}_p001_peaks.narrowPeak"
+    conda:
+        "resources/envs/macs2.yaml"
+    shell:
+        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.001"
+
+rule MACS2_call_peaks_p0001:
+    input:
+        a="{path}aligned/{sample}.bam",
+        b="{path}aligned/{sample}.bam.bai"
+    output:
+        "{path}peaks/{sample}_p0001_peaks.narrowPeak"
+    conda:
+        "resources/envs/macs2.yaml"
+    shell:
+        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p0001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.0001"
 
 rule AGGREGATE_preprocessing:
     input:
         "{path}aligned/{sample}.bam.bai",
-        "{path}peaks/{sample}_peaks.narrowPeak"
+        "{path}peaks/{sample}_p01_peaks.narrowPeak",
+        "{path}peaks/{sample}_p001_peaks.narrowPeak",
+        "{path}peaks/{sample}_p0001_peaks.narrowPeak"
     output:
         "{path}operations/{sample}.preprocessing_complete"
     shell:
