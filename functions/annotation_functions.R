@@ -35,7 +35,8 @@ convertSymbolsToEntrez <- function(geneSymbol){
       returnIDs[b] <- firstEntrezID[entrezIdx]}}
   
   ## Return the vector
-  return(returnIDs)}
+  return(returnIDs)
+  } # end convertSymbolsToEntrez
 
 #### Convert a vector of entrez IDs to gene symbols
 convertEntrezToSymbol <- function(entrezID){

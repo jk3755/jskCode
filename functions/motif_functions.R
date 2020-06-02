@@ -135,7 +135,3 @@ findMotifSimilarity <- function(inputMotif, motifID){
   return(pwm_library_dt)
   
 } # end findMotifSimilarity function
-
-
-
-

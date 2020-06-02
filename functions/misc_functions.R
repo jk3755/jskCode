@@ -202,32 +202,6 @@ convertGenrichPeakToHomerFormat <- function(genrichPath, homerPath, sampleName){
   
 } # end convertGenrichPeakToHomerFormat function
 
-#### Convert genrich peaks to HOMER input peaks ####
-writeGRangesToHomerFormat <- function(ranges, outputPath){
-  
-  ##
-  numPeaks <- length(ranges)
-  name <- 1:numPeaks
-  
-  ## retrieve required data for homer peaks
-  homerPeaks <- data.frame(name = name,
-                           chr = as.character(ranges@seqnames),
-                           start = ranges@ranges@start,
-                           end = (ranges@ranges@start + ranges@ranges@width),
-                           strand = 0)
-  
-  ## write to file
-  write.table(homerPeaks,
-              file = outputPath,
-              sep = "\t",
-              row.names = FALSE,
-              col.names = FALSE,
-              quote = FALSE)
-  
-}
-
-
-
 
 
 
