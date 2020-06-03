@@ -1,0 +1,6 @@
+
+## real run
+snakemake --snakefile ATAC_singleFastq.snakefile -j 20 hahn2019 --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3
+
+## test run
+snakemake --snakefile ATAC_singleFastq.snakefile -j 20 test --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3

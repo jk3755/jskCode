@@ -1,1 +1,0 @@
-snakemake --snakefile ATAC.snakefile -j 20 lncap --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3

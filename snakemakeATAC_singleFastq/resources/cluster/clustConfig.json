@@ -1,0 +1,201 @@
+{
+
+    "__default__" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : 20000,
+        "name"      : "JOBNAME.{rule}.{wildcards}",
+        "runtime"   : "2"
+    },
+
+    "STEP2_fastp_filtering" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP3_refgenome_align" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP5_blacklist_filter_and_bam_conversion" :
+    {
+        "nCPUs"     : "{threads}"
+    },
+
+    "STEP6_chrM_contamination" :
+    {
+        "nCPUs"     : "{threads}"
+    },
+
+    "STEP7_add_rg_and_sort_bam" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP9_merge_lanes" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP10_remove_pcr_duplicates" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP11_mapq_filter" :
+    {
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP13_build_bai_index" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP14_make_bigwig" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "METRICS_fragment_size_distribution" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "METRICS_mycoplasma_align" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_binding_sites_ss" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_insertion_matrix_ss" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_footprint_stats_ss" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_aggregate_footprint_stats_ss" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_binding_sites_sm" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_insertion_matrix_sm" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_generate_footprint_stats_sm" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "FOOTPRINTING_aggregate_footprint_stats_sm" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_make_bigwig" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_binding_sites_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_insertion_matrix_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_footprint_stats_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_aggregate_footprint_stats_sm_lncap" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_binding_sites_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_insertion_matrix_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_generate_footprint_stats_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "WGS_aggregate_footprint_stats_sm_cosma" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "CPM_NORMALIZE_BAM" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "TCGA_MACS2_PEAK_CALLING_p001" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }  
+}

@@ -8,3 +8,7 @@ rule lncap:
         "data/cr05/operations/CR05.preprocessing_complete",
         "data/cr07/operations/CR07.preprocessing_complete",
         "data/cr08/operations/CR08.preprocessing_complete"
+
+rule test:
+    input:
+        "data/cr01/operations/CR01.preprocessing_complete" 

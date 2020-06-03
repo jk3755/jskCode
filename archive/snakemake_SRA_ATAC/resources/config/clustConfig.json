@@ -1,0 +1,73 @@
+{
+
+    "__default__" :
+    {
+        "nCPUs"     : "1",
+        "memory"    : 10000,
+        "name"      : "JOBNAME.{rule}.{wildcards}",
+        "runtime"   : "1"
+    },
+
+    "STEP1_fastp_filtering" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP2_refgenome_align" :
+    {
+        "nCPUs"     : "10",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP3_coordinate_sort_sam" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP4_blacklist_filter_and_bam_conversion" :
+    {
+        "nCPUs"     : "{threads}"
+    },
+
+    "STEP5_chrM_contamination" :
+    {
+        "nCPUs"     : "{threads}"
+    },
+
+    "STEP6_add_rg_and_sort_bam" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP8_remove_pcr_duplicates" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP10_build_bai_index" :
+    {
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP11_make_bigwig" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    },
+
+    "STEP12_MACS2_peaks_global_normilization_p001" :
+    {
+        "nCPUs"     : "{threads}",
+        "memory"    : "{resources.mem_mb}",
+        "runtime"   : "{resources.run_time}"
+    }
+
+}

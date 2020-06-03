@@ -32,7 +32,6 @@ rule STEP1_build_directory_structure:
         mkdir -p -v {wildcards.path}preprocessing/a
         mkdir -p -v {wildcards.path}preprocessing/b
         mkdir -p -v {wildcards.path}preprocessing/c
-        mkdir -p -v {wildcards.path}preprocessing/d
         ####
         touch {output}
         """
@@ -60,6 +59,8 @@ rule STEP3_fastp_filtering:
         run_time=lambda params, attempt: attempt * 1
     conda:
     	"resources/envs/fastp.yaml"
+    resources:
+        mem_mb=50000
     shell:
         "fastp -i {input.a} -I {input.b} -o {output.a} -O {output.b} -w {threads} -h {wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.quality.html -j {wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.quality.json"
 
@@ -85,7 +86,7 @@ rule STEP4_STAR_align:
         --alignIntronMax 1 \
         --alignMatesGapMax 1000 \
         --alignEndsType EndToEnd \
-        --genomeLoad NoSharedMemory \
+        --genomeLoad LoadAndRemove \
         --seedSearchStartLmax 30 \
         --outSAMattributes All \
         --outSAMunmapped None \
@@ -231,7 +232,7 @@ rule STEP13_build_bam_index:
         I={input} \
         O={output}"
 
-rule STEP14_queryname_sort_sam:
+rule STEP14_queryname_sort_bam:
     input:
         "{path}aligned/{sample}.bam"
     output:
@@ -247,16 +248,16 @@ rule STEP15_GENRICH_call_peaks_q05:
     input:
         "{path}aligned/{sample}.nsort.bam"
     output:
-        "{path}peaks/{sample}_p05.narrowPeak"
+        "{path}peaks/{sample}_q05.narrowPeak"
     conda:
         "resources/envs/genrich.yaml"
     shell:
-    	"Genrich -t {input} -o {wildcards.path}peaks/{wildcards.sample}_p05.narrowPeak -j -q 0.05"
+        "Genrich -t {input} -o {wildcards.path}peaks/{wildcards.sample}_q05.narrowPeak -j -q 0.05"
 
 rule AGGREGATE_preprocessing:
     input:
         "{path}aligned/{sample}.bam.bai",
-        "{path}peaks/{sample}_p05.narrowPeak"
+        "{path}peaks/{sample}_q05.narrowPeak"
     output:
         "{path}operations/{sample}.preprocessing_complete"
     shell:

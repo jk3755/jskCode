@@ -1,0 +1,8 @@
+## real run
+snakemake --snakefile ATAC.snakefile -j 20 lncap --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3
+
+## test run
+snakemake --snakefile ATAC.snakefile -j 20 test --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3
+
+## for a dry run
+snakemake --snakefile ATAC.snakefile -j 20 lncap --resources mem_mb=50000 --use-conda --conda-prefix conda --restart-times 3 --dry-run
