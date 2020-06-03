@@ -1,0 +1,6 @@
+STAR \
+--runThreadN 20 \
+--runMode genomeGenerate \
+--genomeDir /home/ubuntu10/ATAC_LNCAP/genomes/star/hg38 \
+--genomeFastaFiles /home/ubuntu10/ATAC_LNCAP/genomes/star/fasta/hg38.fa \
+--sjdbOverhang ReadLength-1

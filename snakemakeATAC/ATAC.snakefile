@@ -63,31 +63,46 @@ rule STEP3_fastp_filtering:
     shell:
         "fastp -i {input.a} -I {input.b} -o {output.a} -O {output.b} -w {threads} -h {wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.quality.html -j {wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.quality.json"
 
-rule STEP4_bowtie2_refgenome_align:
+rule STEP4_star_refgenome_align:
     input:
         a="{path}preprocessing/2/{sample}_L{lane}_R1.good.fastq",
         b="{path}preprocessing/2/{sample}_L{lane}_R2.good.fastq"
     output:
-        "{path}preprocessing/3/{sample}_L{lane}.sam"
+        "{path}preprocessing/3/{sample}_L{lane}Aligned.out.sam"
     threads:
-        15
+        10
     conda:
-        "resources/envs/bowtie2.yaml"
-    resources:
-        mem_mb=lambda params, attempt: attempt * 25000,
-        run_time=lambda params, attempt: attempt * 12
+        "resources/envs/star.yaml"
     shell:
-        "bowtie2 -q -p {threads} -X 1000 -x genomes/bowtie2/hg38/hg38 -1 {input.a} -2 {input.b} -S {output} 2>{wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.align.txt"
+        "STAR --genomeDir genomes/star/hg38 \
+        --outFileNamePrefix {wildcards.path}preprocessing/3/{wildcards.sample}_L{wildcards.lane} \
+        --readFilesIn {input.a} {input.b} \
+        --readFilesCommand cat \
+        --runThreadN {threads} \
+        --outFilterMultimapScoreRange 1 \
+        --outFilterMultimapNmax 1 \
+        --outFilterMismatchNoverReadLmax 0.1 \
+        --alignIntronMax 1 \
+        --alignMatesGapMax 1000 \
+        --alignEndsType EndToEnd \
+        --genomeLoad NoSharedMemory \
+        --seedSearchStartLmax 30 \
+        --outSAMattributes All \
+        --outSAMunmapped None \
+        --outSAMtype SAM \
+        --outSAMheaderHD @HD VN:1.4"
 
 rule STEP5_coordinate_sort_sam:
     input:
-        "{path}preprocessing/3/{sample}_L{lane}.sam"
+        "{path}preprocessing/3/{sample}_L{lane}Aligned.out.sam"
     output:
         "{path}preprocessing/4/{sample}_L{lane}.cs.sam"
+    threads:
+        10
     conda:
         "resources/envs/samtools.yaml"
     shell:
-        "samtools sort {input} -o {output} -O sam"
+        "samtools sort {input} -o {output} -O sam -@ {threads}"
 
 rule STEP6_blacklist_filter_and_bam_conversion:
     input:
@@ -100,7 +115,7 @@ rule STEP6_blacklist_filter_and_bam_conversion:
     threads:
         5
     shell:
-        "samtools view -b -h -o {output.a} -L genomes/bowtie2/hg38/hg38.blacklist.bed -U {output.b} -@ 4 {input}"
+        "samtools view -b -h -o {output.a} -L genomes/blacklist/hg38.blacklist.bed -U {output.b} -@ 4 {input}"
 
 rule STEP7_chrM_contamination:
     input:
@@ -113,7 +128,7 @@ rule STEP7_chrM_contamination:
     threads:
         5
     shell:
-        "samtools view -b -h -o {output.a} -L genomes/bowtie2/hg38/mtdna.extents.bed -U {output.b} -@ 4 {input}"
+        "samtools view -b -h -o {output.a} -L genomes/mtdna/mtdna.extents.bed -U {output.b} -@ 4 {input}"
 
 rule STEP8_add_rg_and_sort_bam:
     input:
@@ -193,21 +208,9 @@ rule STEP11_remove_pcr_duplicates:
         REMOVE_DUPLICATES=true \
         ASSUME_SORTED=true"
 
-rule STEP12_mapq_filter:
-    input:
-        "{path}preprocessing/c/{sample}.dp.bam"
-    output:
-        "{path}preprocessing/d/{sample}.final.bam"
-    conda:
-        "resources/envs/samtools.yaml"
-    resources:
-        run_time=lambda params, attempt: attempt * 4
-    shell:
-        "samtools view -h -q 2 -b {input} > {output}"
-    
 rule STEP13_move_bam:
     input:
-        "{path}preprocessing/d/{sample}.final.bam"
+        "{path}preprocessing/c/{sample}.dp.bam"
     output:
         "{path}aligned/{sample}.bam"
     shell:
@@ -228,46 +231,105 @@ rule STEP14_build_bam_index:
         I={input} \
         O={output}"
 
-rule MACS2_call_peaks_p01:
+rule STEP15_queryname_sort_sam:
     input:
-        a="{path}aligned/{sample}.bam",
-        b="{path}aligned/{sample}.bam.bai"
+        "{path}aligned/{sample}.bam"
     output:
-        "{path}peaks/{sample}_p01_peaks.narrowPeak"
+        "{path}aligned/{sample}.nsort.bam"
+    threads:
+        10
     conda:
-        "resources/envs/macs2.yaml"
+        "resources/envs/samtools.yaml"
     shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p01 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.01"
+        "samtools sort -n {input} -o {output} -O bam -@ {threads}"
 
-rule MACS2_call_peaks_p001:
+rule GENRICH_call_peaks_p05:
     input:
-        a="{path}aligned/{sample}.bam",
-        b="{path}aligned/{sample}.bam.bai"
+        "{path}aligned/{sample}.nsort.bam"
     output:
-        "{path}peaks/{sample}_p001_peaks.narrowPeak"
+        "{path}peaks/{sample}_p05.narrowPeak"
     conda:
-        "resources/envs/macs2.yaml"
+        "resources/envs/genrich.yaml"
     shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.001"
-
-rule MACS2_call_peaks_p0001:
-    input:
-        a="{path}aligned/{sample}.bam",
-        b="{path}aligned/{sample}.bam.bai"
-    output:
-        "{path}peaks/{sample}_p0001_peaks.narrowPeak"
-    conda:
-        "resources/envs/macs2.yaml"
-    shell:
-        "macs2 callpeak -t {input.a} -n {wildcards.sample}_p0001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.0001"
+    	"Genrich -t {input} -o {wildcards.path}peaks/{wildcards.sample}_p05.narrowPeak -j -q 0.05"
 
 rule AGGREGATE_preprocessing:
     input:
         "{path}aligned/{sample}.bam.bai",
-        "{path}peaks/{sample}_p01_peaks.narrowPeak",
-        "{path}peaks/{sample}_p001_peaks.narrowPeak",
-        "{path}peaks/{sample}_p0001_peaks.narrowPeak"
+        "{path}peaks/{sample}_p05.narrowPeak"
     output:
         "{path}operations/{sample}.preprocessing_complete"
     shell:
         "touch {output}"
+
+############# archive
+# rule STEP4_bowtie2_refgenome_align:
+#     input:
+#         a="{path}preprocessing/2/{sample}_L{lane}_R1.good.fastq",
+#         b="{path}preprocessing/2/{sample}_L{lane}_R2.good.fastq"
+#     output:
+#         "{path}preprocessing/3/{sample}_L{lane}.sam"
+#     threads:
+#         15
+#     conda:
+#         "resources/envs/bowtie2.yaml"
+#     resources:
+#         mem_mb=lambda params, attempt: attempt * 25000,
+#         run_time=lambda params, attempt: attempt * 12
+#     shell:
+#         "bowtie2 -q -p {threads} -X 1000 -x genomes/bowtie2/hg38/hg38 -1 {input.a} -2 {input.b} -S {output} 2>{wildcards.path}metrics/{wildcards.sample}_L{wildcards.lane}.align.txt"
+##
+# rule STEP5_coordinate_sort_sam:
+#     input:
+#         "{path}preprocessing/3/{sample}_L{lane}.sam"
+#     output:
+#         "{path}preprocessing/4/{sample}_L{lane}.cs.sam"
+#     conda:
+#         "resources/envs/samtools.yaml"
+#     shell:
+#         "samtools sort {input} -o {output} -O sam"
+#
+# rule STEP12_mapq_filter:
+#     input:
+#         "{path}preprocessing/c/{sample}.dp.bam"
+#     output:
+#         "{path}preprocessing/d/{sample}.final.bam"
+#     conda:
+#         "resources/envs/samtools.yaml"
+#     resources:
+#         run_time=lambda params, attempt: attempt * 4
+#     shell:
+#         "samtools view -h -q 2 -b {input} > {output}"
+#
+# rule MACS2_call_peaks_p01:
+#     input:
+#         a="{path}aligned/{sample}.bam",
+#         b="{path}aligned/{sample}.bam.bai"
+#     output:
+#         "{path}peaks/{sample}_p01_peaks.narrowPeak"
+#     conda:
+#         "resources/envs/macs2.yaml"
+#     shell:
+#         "macs2 callpeak -t {input.a} -n {wildcards.sample}_p01 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.01"
+
+# rule MACS2_call_peaks_p001:
+#     input:
+#         a="{path}aligned/{sample}.bam",
+#         b="{path}aligned/{sample}.bam.bai"
+#     output:
+#         "{path}peaks/{sample}_p001_peaks.narrowPeak"
+#     conda:
+#         "resources/envs/macs2.yaml"
+#     shell:
+#         "macs2 callpeak -t {input.a} -n {wildcards.sample}_p001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.001"
+
+# rule MACS2_call_peaks_p0001:
+#     input:
+#         a="{path}aligned/{sample}.bam",
+#         b="{path}aligned/{sample}.bam.bai"
+#     output:
+#         "{path}peaks/{sample}_p0001_peaks.narrowPeak"
+#     conda:
+#         "resources/envs/macs2.yaml"
+#     shell:
+#         "macs2 callpeak -t {input.a} -n {wildcards.sample}_p0001 --outdir {wildcards.path}peaks/ --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.0001"

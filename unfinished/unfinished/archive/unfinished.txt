@@ -1,0 +1,697 @@
+
+########################################################################################################################################
+#### FOOTPRINTING GROUPED ##############################################################################################################
+########################################################################################################################################
+rule AGGREGATOR_footprinting_group1:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["tempGenes"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group1"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group2:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup2"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group2"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group3:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup3"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group3"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group4:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup4"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group4"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group5:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup5"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group5"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group6:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup6"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group6"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group7:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup7"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group7"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group8:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup8"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group8"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group9:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup9"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group9"
+    shell:
+        "touch {output}"
+
+rule AGGREGATOR_footprinting_group10:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.RData", genename=config["allGenesGroup10"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.uncorrected.sm.group10"
+    shell:
+        "touch {output}"
+
+
+
+########################################################################################################################################
+#### FOOTPRINTING WITH MINIMUM #########################################################################################################
+########################################################################################################################################
+rule FOOTPRINTING_generate_binding_sites_minimum_sm:
+    input:
+        ancient("{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.bind.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.sites.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateBindingSitesWithMinimum.R"
+
+rule FOOTPRINTING_generate_insertion_matrix_minimum_sm:
+    input:
+        ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam"),
+        ancient("{path}aligned/{sample}.rep{repnum}.ref{refgenome}.bam.bai"),
+        ancient("{path}footprints/sm/sites/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.bind.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.ins.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/insertions/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.ins.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateInsertionMatrix.R"
+
+rule FOOTPRINTING_generate_footprint_stats_minimum_sm:
+    input:
+        ancient("{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.ins.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.stats.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunk{chunk}of{totalchunk}.stats.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule FOOTPRINTING_fork_footprint_stats_minimum_sm:
+    input:
+        ancient(expand("{{path}}footprints/sm/stats/{{gene}}/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{{gene}}.minimum{{minsites}}.chunk{chunkNum}of{{totalchunk}}.stats.RData", chunkNum=config["chunkFootprinting20"]))
+    output:
+        "{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.stats.complete"
+    shell:
+        "touch {output}"
+
+rule FOOTPRINTING_aggregate_footprint_stats_minimum_sm:
+    input:
+        ancient("{path}footprints/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.stats.complete"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.sm.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.minimum{minsites}.chunks{totalchunk}.aggregated.txt"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 2
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+
+rule AGGREGATOR_footprinting_minimum:
+    input:
+        ancient(expand("{{path}}footprints/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.minimum{{minsites}}.chunks{{totalchunk}}.sm.RData", genename=config["allGenes"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.minimum{minsites}.chunks{totalchunk}.uncorrected.sm"
+    shell:
+        "touch {output}"
+
+
+
+########################################################################################################################################
+#### TESTING ###########################################################################################################################
+########################################################################################################################################
+rule NORMALIZATION_get_total_reads_in_peaks_sm:
+    input:
+        ancient("{path}peaks/sm/{sample}.rep{repnum}.ref{refgenome}_sample_merged_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/sm/normalization/{sample}.rep{repnum}.ref{refgenome}.total_reads_in_peaks.sm.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    benchmark:
+        "{path}benchmark/footprinting/normalization/{sample}.rep{repnum}.ref{refgenome}.total_reads_in_peaks.sm.RData"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 2
+    script:
+        "resources/scripts/footprinting/getTotalReadsInPeaks.R"
+
+
+
+
+
+########################################################################################################################################
+#### FOOTPRINTING CORRECTED ############################################################################################################
+########################################################################################################################################
+
+rule FOOTPRINTING_generate_corrected_insertion_matrix_sm:
+    input:
+        ancient("{path}footprints/sm/insertions/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.corrected.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/correctInsertionMatrix.R"
+
+rule FOOTPRINTING_generate_footprint_stats_sm_corrected:
+    input:
+        ancient("{path}footprints/corrected/sm/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.ins.corrected.RData"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/stats/{gene}/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.{chunk}.stats.corrected.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 20000,
+        run_time=lambda params, attempt: attempt * 6
+    script:
+        "resources/scripts/footprinting/generateFootprintStats.R"
+
+rule FOOTPRINTING_fork_footprint_stats_sm_corrected:
+    input:
+        ancient(expand("{{path}}footprints/corrected/sm/stats/{{gene}}/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{{gene}}.pwm{{matchScore}}.{chunkNum}.stats.corrected.RData", chunkNum=config["chunkFootprinting20"]))
+    output:
+        "{path}footprints/corrected/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.corrected.complete"
+    shell:
+        "touch {output}"
+
+rule FOOTPRINTING_aggregate_footprint_stats_sm_corrected:
+    input:
+        ancient("{path}footprints/corrected/sm/stats/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.stats.corrected.complete"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "{path}footprints/corrected/sm/aggregated/{sample}.rep{repnum}.ref{refgenome}.{gene}.pwm{matchScore}.sm.corrected.RData"
+    conda:
+        "resources/envs/footprintAnalysis.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 10000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/footprinting/aggregateFootprintStats.R"
+
+rule AGGREGATOR_footprinting_corrected:
+    input:
+        ancient(expand("{{path}}footprints/corrected/sm/aggregated/{{sample}}.rep{{repnum}}.ref{{refgenome}}.{genename}.pwm{{matchScore}}.sm.corrected.RData", genename=config["geneNames"]))
+    output:
+        "{path}operations/aggregators/{sample}.rep{repnum}.ref{refgenome}.footprinting.pwm{matchScore}.corrected.sm"
+    shell:
+        "touch {output}"
+
+
+########################################################################################################################################
+#### SEQBIAS MODELS ####################################################################################################################
+########################################################################################################################################
+
+rule AGGREGATOR_seqbias_models:
+    input:
+        "{path}seqbias/{sample}.rep{repnum}.ref{refgenome}.seqbias_sample_reads_against_sample_peaks.yml",
+        "{path}seqbias/{sample}.rep{repnum}.ref{refgenome}.seqbias_sample_reads_against_hg38_chr1.yml"
+    output:
+        "{path}operations/{sample}.rep{repnum}.ref{refgenome}.seqbias_models.complete"
+    shell:
+        "touch {output}"
+
+rule SEQBIAS_write_sample_peaks_to_BED:
+    input:
+        "{path}peaks/globalnorm/{sample}.rep{repnum}.ref{refgenome}_globalnorm_peaks.narrowPeak",
+        "snakeResources/functions/atacFunctions.R"
+    output:
+        "{path}peaks/globalnorm/{sample}.rep{repnum}.ref{refgenome}_globalnorm_peaks.bed"
+    conda:
+        "snakeResources/envs/modelSeqbias.yaml"
+    script:
+        "snakeResources/scripts/convertPeaksToBEDinterval.R"
+
+
+########################################################################################################################################
+#### SAMPLE SPECIFIC MERGE PEAKS #######################################################################################################
+########################################################################################################################################
+
+rule MERGE_sample_peaks_lncap:
+    input:
+        ancient("data/pros/lncap/cr01/peaks/gn/LNCaP-CR-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr02/peaks/gn/LNCaP-CR-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr04/peaks/gn/LNCaP-CR-04.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr05/peaks/gn/LNCaP-CR-05.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr07/peaks/gn/LNCaP-CR-07.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/cr08/peaks/gn/LNCaP-CR-08.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/wt01/peaks/gn/LNCaP-WT-01.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/pros/lncap/wt02/peaks/gn/LNCaP-WT-02.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "data/pros/lncap/cr01/peaks/sm/LNCaP-CR-01.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/cr02/peaks/sm/LNCaP-CR-02.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/cr04/peaks/sm/LNCaP-CR-04.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/cr05/peaks/sm/LNCaP-CR-05.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/cr07/peaks/sm/LNCaP-CR-07.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/cr08/peaks/sm/LNCaP-CR-08.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/wt01/peaks/sm/LNCaP-WT-01.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/pros/lncap/wt02/peaks/sm/LNCaP-WT-02.rep1.refhg38_sample_merged_peaks.narrowPeak"
+    conda:
+        "resources/envs/mergeSamplePeaks.yaml"
+    script:
+        "resources/scripts/preprocessing/mergeSamplePeaks.R"
+
+rule MERGE_sample_peaks_cosma:
+    input:
+        ancient("data/cosma/DAbaz2b/peaks/gn/DonorA_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DAluf/peaks/gn/DonorA_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DAprog/peaks/gn/DonorA_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBbaz2b/peaks/gn/DonorB_Baz2B.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBluf/peaks/gn/DonorB_Luf.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("data/cosma/DBprog/peaks/gn/DonorB_Progenitor.rep1.refhg38_globalnorm_p01_peaks.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "data/cosma/DAbaz2b/peaks/sm/DonorA_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DAluf/peaks/sm/DonorA_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DAprog/peaks/sm/DonorA_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBbaz2b/peaks/sm/DonorB_Baz2B.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBluf/peaks/sm/DonorB_Luf.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/cosma/DBprog/peaks/sm/DonorB_Progenitor.rep1.refhg38_sample_merged_peaks.narrowPeak"
+    conda:
+        "resources/envs/mergeSamplePeaks.yaml"
+    script:
+        "resources/scripts/preprocessing/mergeSamplePeaks.R"
+
+rule MERGE_sample_peaks_ciccia:
+    input:
+        ancient("data/ciccia/peaks/MDA_MB436_CTRL_UNTR.rep1.refhg38.narrowPeak"),
+        ancient("data/ciccia/peaks/MDA_MB436_CTRL_UNTR.rep2.refhg38.narrowPeak"),
+        ancient("data/ciccia/peaks/MDA_MB436_CTRL_UNTR.rep3.refhg38.narrowPeak"),
+        ancient("data/ciccia/peaks/MDA_MB436_SL1KO10_UNTR.rep1.refhg38.narrowPeak"),
+        ancient("data/ciccia/peaks/MDA_MB436_SL1KO10_UNTR.rep2.refhg38.narrowPeak"),
+        ancient("data/ciccia/peaks/MDA_MB436_SL1KO10_UNTR.rep3.refhg38.narrowPeak"),
+        ancient("resources/functions/atacFunctions.R")
+    output:
+        "data/ciccia/CTRL_UNTR_R1/peaks/sm/MDA_MB436_CTRL_UNTR.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/ciccia/CTRL_UNTR_R2/peaks/sm/MDA_MB436_CTRL_UNTR.rep2.refhg38_sample_merged_peaks.narrowPeak",
+        "data/ciccia/CTRL_UNTR_R3/peaks/sm/MDA_MB436_CTRL_UNTR.rep3.refhg38_sample_merged_peaks.narrowPeak",
+        "data/ciccia/KO_UNTR_R1/peaks/sm/MDA_MB436_SL1KO10_UNTR.rep1.refhg38_sample_merged_peaks.narrowPeak",
+        "data/ciccia/KO_UNTR_R2/peaks/sm/MDA_MB436_SL1KO10_UNTR.rep2.refhg38_sample_merged_peaks.narrowPeak",
+        "data/ciccia/KO_UNTR_R3/peaks/sm/MDA_MB436_SL1KO10_UNTR.rep3.refhg38_sample_merged_peaks.narrowPeak"
+    conda:
+        "resources/envs/mergeSamplePeaks.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 25000,
+        run_time=lambda params, attempt: attempt * 1
+    script:
+        "resources/scripts/preprocessing/mergeSamplePeaks.R"
+
+########################################################################################################################################
+#### MERGE FOR LNCAP SAMPLES ###########################################################################################################
+########################################################################################################################################
+
+rule merge1:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-01.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-01.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-01_02.refhg38.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule merge2:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-04.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-05.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-04_05.refhg38.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule merge3:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-07.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-08.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-07_08.refhg38.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule merge4:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-WT-01.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-WT-02.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-WT-01_02.refhg38.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule tempMerge:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-WT-01_02.refhg38.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-07_08.refhg38.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-04_05.refhg38.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/lncapmerge/LNCaP-CR-01_02.refhg38.bam"
+
+########################################################################################################################################
+#### MERGE FOR COSMA SAMPLES ###########################################################################################################
+########################################################################################################################################
+
+rule cosma_merge1:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DAbaz2b/aligned/DonorA_Baz2B.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DBbaz2b/aligned/DonorB_Baz2B.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule cosma_merge2:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DAluf/aligned/DonorA_Luf.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DBluf/aligned/DonorB_Luf.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule cosma_merge3:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DAprog/aligned/DonorA_Progenitor.rep1.refhg38.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma/DBprog/aligned/DonorB_Progenitor.rep1.refhg38.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    threads:
+        2
+    resources:
+        mem_mb=lambda params, attempt: attempt * 50000,
+        run_time=lambda params, attempt: attempt * 10
+    shell:
+        "picard MergeSamFiles \
+        I={input.a} \
+        I={input.b} \
+        O={output} \
+        SORT_ORDER=coordinate \
+        ASSUME_SORTED=true \
+        MERGE_SEQUENCE_DICTIONARIES=true \
+        USE_THREADING=true"
+
+rule target_cosma_merge:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged.bam"
+
+#############
+
+rule cosma_sort_merged1:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard SortSam \
+        I={input} \
+        O={output} \
+        SORT_ORDER=coordinate"
+
+rule cosma_sort_merged2:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard SortSam \
+        I={input} \
+        O={output} \
+        SORT_ORDER=coordinate"
+
+rule cosma_sort_merged3:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard SortSam \
+        I={input} \
+        O={output} \
+        SORT_ORDER=coordinate"
+
+rule target_cosma_sort:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam"
+
+#############
+
+
+rule cosma_index_merged1:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam.bai"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard BuildBamIndex \
+        I={input} \
+        O={output}"
+
+rule cosma_index_merged2:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam.bai"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard BuildBamIndex \
+        I={input} \
+        O={output}"
+
+rule cosma_index_merged3:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam.bai"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 30000,
+        run_time=lambda params, attempt: attempt * 3
+    shell:
+        "picard BuildBamIndex \
+        I={input} \
+        O={output}"
+
+rule target_cosma_index:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam.bai",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam.bai",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam.bai"
+
+#### Peaks
+
+rule cosma_MACS2_peaks_global_normilization_p005_1:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_merged_sorted.bam.bai"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_global_p005_peaks.narrowPeak"
+    conda:
+        "resources/envs/macs2.yaml"
+    shell:
+        "macs2 callpeak -t {input.a} -n baz2b_global_p005 --outdir /ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.005"
+
+
+rule cosma_MACS2_peaks_global_normilization_p005_2:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_merged_sorted.bam.bai"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_global_p005_peaks.narrowPeak"
+    conda:
+        "resources/envs/macs2.yaml"
+    shell:
+        "macs2 callpeak -t {input.a} -n luciferase_global_p005 --outdir /ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.005"
+
+
+rule cosma_MACS2_peaks_global_normilization_p005_3:
+    input:
+        a="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam",
+        b="/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_merged_sorted.bam.bai"
+    output:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_global_p005_peaks.narrowPeak"
+    conda:
+        "resources/envs/macs2.yaml"
+    shell:
+        "macs2 callpeak -t {input.a} -n progenitor_global_p005 --outdir /ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged --shift -75 --extsize 150 --nomodel --call-summits --nolambda --keep-dup all -p 0.005"
+
+rule target_cosma_peaks:
+    input:
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/progenitor_global_p005_peaks.narrowPeak",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/luciferase_global_p005_peaks.narrowPeak",
+        "/ifs/scratch/c2b2/ac_lab/jk3755/atac/data/cosma_merged/baz2b_global_p005_peaks.narrowPeak"
+
+
+###############################
+#### IRF AND STAT, LNCAP ######
+###############################
