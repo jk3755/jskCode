@@ -243,14 +243,17 @@ rule STEP15_deeptools_filter_NF:
     input:
         "{path}aligned/{sample}.bam"
     output:
-        "{path}aligned_NF/{sample}_NF.bam",
-        "{path}aligned_NF/{sample}_nucleosome_reads.bam"
+        a="{path}aligned_NF/{sample}_NF.bam",
+        b="{path}aligned_NF/{sample}_nucleosome_reads.bam",
+        c="{path}aligned_NF/{sample}_NF_filter_metrics.txt"
     threads:
         20
     conda:
         "resources/envs/deeptools.yaml"
+    resources:
+        mem_mb=50000
     shell:
-        "alignmentSieve -b {input} -o {output} -p {threads} --filterMetrics {wildcards.path}/aligned_NF/NF_filter_metrics.txt --filteredOutReads {wildcards.path}/aligned_NF/{wildcards.sample}_nucleosome_reads.bam --verbose --minFragmentLength 0 --maxFragmentLength 147"
+        "alignmentSieve -b {input} -o {output.a} -p {threads} --filterMetrics {output.c} --filteredOutReads {output.b} --verbose --minFragmentLength 0 --maxFragmentLength 147"
 
 rule STEP16_build_bam_index_NF_reads:
     input:

@@ -254,10 +254,136 @@ rule STEP15_GENRICH_call_peaks_q05:
     shell:
         "Genrich -t {input} -o {wildcards.path}peaks/{wildcards.sample}_q05.narrowPeak -j -q 0.05"
 
+rule STEP14_GENRICH_call_peaks_p05:
+    input:
+        "{path}aligned/{sample}.nsort.bam"
+    output:
+        "{path}peaks/{sample}_p05.narrowPeak"
+    conda:
+        "resources/envs/genrich.yaml"
+    shell:
+        "Genrich -t {input} -o {wildcards.path}peaks/{wildcards.sample}_p05.narrowPeak -j -p 0.05"
+
+rule STEP15_deeptools_filter_NF:
+    input:
+        "{path}aligned/{sample}.bam"
+    output:
+        a="{path}aligned_NF/{sample}_NF.bam",
+        b="{path}aligned_NF/{sample}_nucleosome_reads.bam",
+        c="{path}aligned_NF/{sample}_NF_filter_metrics.txt"
+    threads:
+        20
+    conda:
+        "resources/envs/deeptools.yaml"
+    resources:
+        mem_mb=50000
+    shell:
+        "alignmentSieve -b {input} -o {output.a} -p {threads} --filterMetrics {output.c} --filteredOutReads {output.b} --verbose --minFragmentLength 0 --maxFragmentLength 147"
+
+rule STEP16_build_bam_index_NF_reads:
+    input:
+        ancient("{path}aligned_NF/{sample}_NF.bam")
+    output:
+        "{path}aligned_NF/{sample}_NF.bam.bai"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 25000,
+        run_time=lambda params, attempt: attempt * 4
+    shell:
+        "picard BuildBamIndex \
+        I={input} \
+        O={output}"
+
+rule STEP17_build_bam_index_nucleosome_reads:
+    input:
+        ancient("{path}aligned_NF/{sample}_nucleosome_reads.bam")
+    output:
+        "{path}aligned_NF/{sample}_nucleosome_reads.bam.bai"
+    conda:
+        "resources/envs/picard.yaml"
+    resources:
+        mem_mb=lambda params, attempt: attempt * 25000,
+        run_time=lambda params, attempt: attempt * 4
+    shell:
+        "picard BuildBamIndex \
+        I={input} \
+        O={output}"
+
+rule STEP18_queryname_sort_sam_NF:
+    input:
+        "{path}aligned_NF/{sample}_NF.bam"
+    output:
+        "{path}aligned_NF/{sample}_NF.nsort.bam"
+    threads:
+        10
+    conda:
+        "resources/envs/samtools.yaml"
+    shell:
+        "samtools sort -n {input} -o {output} -O bam -@ {threads}"
+
+rule STEP19_queryname_sort_sam_nucleosome_reads:
+    input:
+        "{path}aligned_NF/{sample}_nucleosome_reads.bam"
+    output:
+        "{path}aligned_NF/{sample}_nucleosome_reads.nsort.bam"
+    threads:
+        10
+    conda:
+        "resources/envs/samtools.yaml"
+    shell:
+        "samtools sort -n {input} -o {output} -O bam -@ {threads}"
+
+rule STEP20_GENRICH_call_peaks_q05_NF:
+    input:
+        "{path}aligned_NF/{sample}_NF.nsort.bam"
+    output:
+        "{path}peaks_NF/{sample}_NF_q05.narrowPeak"
+    conda:
+        "resources/envs/genrich.yaml"
+    shell:
+        "Genrich -t {input} -o {wildcards.path}peaks_NF/{wildcards.sample}_NF_q05.narrowPeak -j -q 0.05"
+
+rule STEP21_GENRICH_call_peaks_q05_nucleosome_free:
+    input:
+        "{path}aligned_NF/{sample}_NF.nsort.bam"
+    output:
+        "{path}peaks_NF/{sample}_nucleosome_reads_q05.narrowPeak"
+    conda:
+        "resources/envs/genrich.yaml"
+    shell:
+        "Genrich -t {input} -o {wildcards.path}peaks_NF/{wildcards.sample}_nucleosome_reads_q05.narrowPeak -j -q 0.05"
+
+rule STEP20_GENRICH_call_peaks_p05_NF:
+    input:
+        "{path}aligned_NF/{sample}_NF.nsort.bam"
+    output:
+        "{path}peaks_NF/{sample}_NF_p05.narrowPeak"
+    conda:
+        "resources/envs/genrich.yaml"
+    shell:
+        "Genrich -t {input} -o {wildcards.path}peaks_NF/{wildcards.sample}_NF_p05.narrowPeak -j -p 0.05"
+
+rule STEP21_GENRICH_call_peaks_p05_nucleosome_free:
+    input:
+        "{path}aligned_NF/{sample}_NF.nsort.bam"
+    output:
+        "{path}peaks_NF/{sample}_nucleosome_reads_p05.narrowPeak"
+    conda:
+        "resources/envs/genrich.yaml"
+    shell:
+        "Genrich -t {input} -o {wildcards.path}peaks_NF/{wildcards.sample}_nucleosome_reads_p05.narrowPeak -j -p 0.05"
+
 rule AGGREGATE_preprocessing:
     input:
         "{path}aligned/{sample}.bam.bai",
-        "{path}peaks/{sample}_q05.narrowPeak"
+        "{path}aligned_NF/{sample}_NF.bam.bai",
+        "{path}aligned_NF/{sample}_nucleosome_reads.bam.bai",
+        "{path}peaks/{sample}_q05.narrowPeak",
+        "{path}peaks_NF/{sample}_NF_q05.narrowPeak",
+        "{path}peaks_NF/{sample}_nucleosome_reads_q05.narrowPeak",
+        "{path}peaks/{sample}_p05.narrowPeak",
+        "{path}peaks_NF/{sample}_NF_p05.narrowPeak"
     output:
         "{path}operations/{sample}.preprocessing_complete"
     shell:
