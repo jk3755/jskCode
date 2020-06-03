@@ -1,3 +1,4 @@
+
 ####
 rule STEP4_bowtie2_refgenome_align:
      input:

@@ -70,7 +70,7 @@ rule STEP4_STAR_align:
     output:
         "{path}preprocessing/3/{sample}_L{lane}Aligned.out.sam"
     threads:
-        10
+        20
     conda:
         "resources/envs/star.yaml"
     shell:
