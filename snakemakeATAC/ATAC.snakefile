@@ -266,13 +266,14 @@ rule STEP14_GENRICH_call_peaks_p05:
 
 rule STEP15_deeptools_filter_NF:
     input:
-        "{path}aligned/{sample}.bam"
+        a="{path}aligned/{sample}.bam",
+        b="{path}aligned/{sample}.bam.bai"
     output:
         a="{path}aligned_NF/{sample}_NF.bam",
         b="{path}aligned_NF/{sample}_nucleosome_reads.bam",
         c="{path}aligned_NF/{sample}_NF_filter_metrics.txt"
     threads:
-        20
+        10
     conda:
         "resources/envs/deeptools.yaml"
     resources:
